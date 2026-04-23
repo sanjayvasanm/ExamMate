@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            900: '#0D0C22',
+                            800: '#161531',
+                            700: '#1F1E40'
+                        },
+                        emerald: {
+                            500: '#008A3F',
+                            600: '#007033',
+                            400: '#10B981'
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1F1E40;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#0D0C22] dark:bg-slate-950 flex justify-between items-center px-6 py-4 w-full docked full-width top-0 border-b border-slate-800 shadow-lg shadow-black/20 z-50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400 text-2xl" data-icon="auto_awesome">auto_awesome</span>
+<h1 class="text-xl font-bold text-white dark:text-slate-100 font-sans tracking-tight">Exam Mate</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-700">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional man with a confident expression in a bright studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOWBnjlO4e8Fe8-4Q1nPSufSkABxP8LzoGoKnxS_bpzz1aXHfjcCbkz376BE49icInQ1FgyzK-jz_B6Y2Np5Ng6xRPAGCCNaF4HRmtULLaQ6ZnxuCePEf22WkGnFpU0dGzxNCtTA0AsmygTYTpPYoskLMFAQwt8h8PValdw70YrhyIAGG9nVCiHfrW-qd7AQVmDs8_3isq-Wq5T3cpJdLTVN41RnNWjj_TH2nEeC4FJb-HFVYKuUz20O_ApNngfGZgBjRF120mz0I"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto custom-scrollbar pb-24 bg-[#0D0C22] relative overflow-hidden">
+<!-- Futuristic Background Elements -->
+<div class="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+<div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-navy-700 rounded-full blur-[120px]"></div>
+</div>
+<div class="relative z-10 max-w-2xl mx-auto px-6 pt-8">
+<!-- Search & Filter Header -->
+<div class="mb-8">
+<h2 class="text-2xl font-extrabold text-white mb-2">Question History</h2>
+<p class="text-slate-400 text-sm mb-6">Review your past queries and AI-generated solutions.</p>
+<div class="flex items-center gap-3 bg-navy-800/50 p-1 rounded-xl border border-white/5">
+<div class="flex-1 flex items-center gap-2 px-3">
+<span class="material-symbols-outlined text-slate-500 text-xl" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 w-full py-2 text-sm" placeholder="Search history..." type="text"/>
+</div>
+<button class="bg-navy-700 hover:bg-navy-600 text-white p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</div>
+<!-- List Section: Today -->
+<div class="space-y-4 mb-10">
+<div class="flex items-center gap-3 mb-4">
+<span class="h-[1px] flex-1 bg-slate-800"></span>
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Today</span>
+<span class="h-[1px] flex-1 bg-slate-800"></span>
+</div>
+<!-- History Item 1 -->
+<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="psychology">psychology</span>
+</div>
+<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Advanced Physics</span>
+</div>
+<span class="text-xs text-slate-500">2h ago</span>
+</div>
+<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">Quantum Mechanics Fundamentals</h3>
+<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Describe the observer effect in quantum mechanics and its implications on the wave-particle duality experiment...</p>
+<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Quiz Ready</span>
+</div>
+<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- History Item 2 -->
+<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="function">function</span>
+</div>
+<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Calculus III</span>
+</div>
+<span class="text-xs text-slate-500">5h ago</span>
+</div>
+<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">Multiple Integrals in Polar Coordinates</h3>
+<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Calculate the area of the region enclosed by the cardioid r = 1 + cos θ using double integrals...</p>
+<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Step-by-step</span>
+</div>
+<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- List Section: Yesterday -->
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-4">
+<span class="h-[1px] flex-1 bg-slate-800"></span>
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Yesterday</span>
+<span class="h-[1px] flex-1 bg-slate-800"></span>
+</div>
+<!-- History Item 3 -->
+<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="biotech">biotech</span>
+</div>
+<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Organic Chemistry</span>
+</div>
+<span class="text-xs text-slate-500">Yesterday</span>
+</div>
+<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">SN2 Reaction Mechanism</h3>
+<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Explain the stereochemistry of SN2 reactions and why the rate is dependent on the concentration of both reactants...</p>
+<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Video Summary</span>
+</div>
+<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- History Item 4 -->
+<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="history_edu">history_edu</span>
+</div>
+<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Modern History</span>
+</div>
+<span class="text-xs text-slate-500">Yesterday</span>
+</div>
+<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">The Industrial Revolution Impacts</h3>
+<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Analyze the socio-economic impacts of the steam engine introduction in 18th century Britain...</p>
+<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Doc Scanned</span>
+</div>
+<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Empty State Spacer -->
+<div class="h-10"></div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] rounded-t-2xl shadow-[0_-4px_10px_rgba(0,0,0,0.05)] border-t border-slate-100 dark:border-slate-800">
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="history" data-weight="fill" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+</a>
+</nav>
+</body></html>

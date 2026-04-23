@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Ask Question</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:"#008A3F"},fontFamily:{body:["Public Sans","sans-serif"]}}}}</script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .spinner-big { width:32px;height:32px;border:3px solid rgba(0,138,63,0.2);border-top-color:#008A3F;border-radius:50%;animation:spin .8s linear infinite;margin:auto; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .marks-btn { transition:all .15s; }
+  .marks-btn.active { background:#ecfdf5;border-color:#008A3F;color:#008A3F; }
+  .mode-btn { transition:all .15s; cursor:pointer; }
+  .mode-btn.active { background:#ecfdf5;border-color:#10b981; }
+</style>
+</head>
+<body class="min-h-screen pb-24 bg-slate-50">
+
+<!-- Header -->
+<header class="bg-[#0D0C22] text-white flex justify-between items-center px-6 py-4 w-full sticky top-0 border-b border-slate-800 shadow-lg shadow-black/20 z-50">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#008A3F]">auto_awesome</span>
+    <h1 class="text-xl font-bold text-white tracking-tight">Exam Mate</h1>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex gap-6 mr-6">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">Home</button>
+      <button onclick="navigate('upload')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">Upload</button>
+      <button onclick="navigate('history')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">History</button>
+      <span class="text-[#008A3F] font-semibold px-3 py-1">Ask AI</span>
+    </div>
+    <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
+      <span id="avatarInit" class="text-[#008A3F] font-bold"></span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 pt-12">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+    <!-- Left: Question Input -->
+    <div class="lg:col-span-8 space-y-6">
+      <!-- Doc Context Banner -->
+      <div id="docBanner" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-[#008A3F] text-lg">attach_file</span>
+          <span class="text-sm font-semibold text-[#007033]">Context: <span id="docBannerName"></span></span>
+        </div>
+        <button onclick="clearDocContext()" class="text-slate-400 hover:text-red-500 transition-colors">
+          <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+      </div>
+
+      <!-- Input Card -->
+      <div class="bg-white rounded-3xl p-1 shadow-xl shadow-slate-200/50">
+        <div class="bg-white rounded-[22px] p-6 md:p-8">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">What's your question?</h2>
+            <div class="flex items-center gap-2 px-3 py-1 bg-green-50 text-[#008A3F] rounded-full text-xs font-bold uppercase tracking-widest">
+              <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1;">bolt</span> AI Powered
+            </div>
+          </div>
+          <div class="relative group">
+            <textarea id="questionInput" class="w-full min-h-[280px] bg-slate-50 border-none rounded-2xl p-6 text-lg text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none focus:outline-none" placeholder="Type your exam question here..."></textarea>
+            <div class="absolute bottom-4 left-4 right-4 flex justify-between items-center">
+              <div class="flex gap-2">
+                <span class="text-xs font-medium text-slate-400">Subject:</span>
+                <input id="subjectInput" type="text" placeholder="e.g. Physics" class="text-xs bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:border-[#008A3F] w-28"/>
+              </div>
+              <span class="text-xs font-medium text-slate-400" id="charCount">0 chars</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sample questions -->
+      <div class="bg-[#0D0C22] text-white p-8 rounded-[40px] overflow-hidden relative">
+        <div class="relative z-10">
+          <h3 class="text-xl font-bold mb-2">Need a sample?</h3>
+          <p class="text-slate-400 mb-6 text-sm">Click any topic to try it instantly.</p>
+          <div class="flex flex-wrap gap-3">
+            <button onclick="fillSample(this)" class="px-4 py-2 bg-slate-800 rounded-full text-sm font-medium border border-slate-700 hover:border-[#008A3F] transition-colors">Quantum Physics</button>
+            <button onclick="fillSample(this)" class="px-4 py-2 bg-slate-800 rounded-full text-sm font-medium border border-slate-700 hover:border-[#008A3F] transition-colors">History of Arts</button>
+            <button onclick="fillSample(this)" class="px-4 py-2 bg-slate-800 rounded-full text-sm font-medium border border-slate-700 hover:border-[#008A3F] transition-colors">Advanced Calculus</button>
+            <button onclick="fillSample(this)" class="px-4 py-2 bg-slate-800 rounded-full text-sm font-medium border border-slate-700 hover:border-[#008A3F] transition-colors">Microservices Architecture</button>
+          </div>
+        </div>
+        <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-[#008A3F]/20 rounded-full blur-[80px]"></div>
+      </div>
+    </div>
+
+    <!-- Right: Config -->
+    <div class="lg:col-span-4 space-y-6">
+      <!-- Marks -->
+      <div class="bg-white rounded-3xl p-6 shadow-md border border-slate-50">
+        <label class="block text-sm font-bold text-slate-500 mb-4 uppercase tracking-widest">Marks Allocation</label>
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="selectMarks(this,2)" class="marks-btn active py-4 rounded-2xl bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-bold text-lg">2</button>
+          <button onclick="selectMarks(this,5)" class="marks-btn py-4 rounded-2xl bg-slate-50 text-slate-600 border-2 border-transparent font-bold text-lg hover:bg-slate-100">5</button>
+          <button onclick="selectMarks(this,10)" class="marks-btn py-4 rounded-2xl bg-slate-50 text-slate-600 border-2 border-transparent font-bold text-lg hover:bg-slate-100">10</button>
+          <button onclick="selectMarks(this,16)" class="marks-btn py-4 rounded-2xl bg-slate-50 text-slate-600 border-2 border-transparent font-bold text-lg hover:bg-slate-100">16</button>
+        </div>
+      </div>
+
+      <!-- Mode -->
+      <div class="bg-white rounded-3xl p-6 shadow-md border border-slate-50">
+        <label class="block text-sm font-bold text-slate-500 mb-4 uppercase tracking-widest">Answer Difficulty</label>
+        <div class="space-y-2">
+          <div onclick="selectMode(this,'beginner')" class="mode-btn flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-[#008A3F]">school</span>
+              <span class="font-semibold text-slate-700">Beginner</span>
+            </div>
+            <div class="w-5 h-5 rounded-full border-2 border-slate-300" id="dot-beginner"></div>
+          </div>
+          <div onclick="selectMode(this,'exam')" class="mode-btn active flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-[#008A3F]" style="font-variation-settings:'FILL' 1;">workspace_premium</span>
+              <span class="font-semibold text-emerald-900">Exam Mode</span>
+            </div>
+            <div class="w-5 h-5 rounded-full border-4 border-[#008A3F]" id="dot-exam"></div>
+          </div>
+          <div onclick="selectMode(this,'detailed')" class="mode-btn flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-[#008A3F]">description</span>
+              <span class="font-semibold text-slate-700">Detailed</span>
+            </div>
+            <div class="w-5 h-5 rounded-full border-2 border-slate-300" id="dot-detailed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button id="submitBtn" onclick="handleAsk()" class="w-full bg-[#10B981] hover:bg-[#008A3F] text-white font-black py-6 rounded-3xl shadow-xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-3 group active:scale-95 duration-150">
+        <span class="text-xl" id="submitBtnText">Generate Solution</span>
+        <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+      </button>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white flex justify-around items-center px-4 py-3 border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] rounded-t-2xl">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">home</span><span class="text-[11px] font-medium uppercase">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">cloud_upload</span><span class="text-[11px] font-medium uppercase">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">history</span><span class="text-[11px] font-medium uppercase">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">person</span><span class="text-[11px] font-medium uppercase">Profile</span>
+  </div>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+if (!token) window.location.href = '../login_exam_mate/code.html';
+
+document.getElementById('avatarInit').textContent = (user.name||'U').charAt(0).toUpperCase();
+
+// State
+
+// State
+
+let selectedMarks = 2;
+let selectedMode = 'exam';
+let docId = sessionStorage.getItem('ask_doc_id') || null;
+let docName = sessionStorage.getItem('ask_doc_name') || null;
+
+if (docId && docName) {
+  document.getElementById('docBanner').classList.remove('hidden');
+  document.getElementById('docBannerName').textContent = docName;
+}
+
+// Prefill logic
+const prefill = sessionStorage.getItem('prefill_question');
+if (prefill) {
+  document.getElementById('questionInput').value = prefill;
+  document.getElementById('charCount').textContent = prefill.length + ' chars';
+  sessionStorage.removeItem('prefill_question');
+}
+
+function clearDocContext() {
+  docId = null; docName = null;
+  sessionStorage.removeItem('ask_doc_id');
+  sessionStorage.removeItem('ask_doc_name');
+  document.getElementById('docBanner').classList.add('hidden');
+}
+
+document.getElementById('questionInput').addEventListener('input', function(){
+  document.getElementById('charCount').textContent = this.value.length + ' chars';
+});
+
+function selectMarks(btn, val) {
+  document.querySelectorAll('.marks-btn').forEach(b=>b.className=b.className.replace('active','').trim()+' py-4 rounded-2xl bg-slate-50 text-slate-600 border-2 border-transparent font-bold text-lg hover:bg-slate-100');
+  btn.className = 'marks-btn active py-4 rounded-2xl bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-bold text-lg';
+  selectedMarks = val;
+}
+
+function selectMode(el, mode) {
+  document.querySelectorAll('.mode-btn').forEach(b=>{ b.classList.remove('active','bg-emerald-50','border-emerald-200'); b.classList.add('bg-slate-50','border-slate-100'); });
+  document.querySelectorAll('[id^="dot-"]').forEach(d=>{ d.className='w-5 h-5 rounded-full border-2 border-slate-300'; });
+  el.classList.add('active','bg-emerald-50','border-emerald-200');
+  el.classList.remove('bg-slate-50','border-slate-100');
+  document.getElementById('dot-'+mode).className='w-5 h-5 rounded-full border-4 border-[#008A3F]';
+  selectedMode = mode;
+}
+
+function fillSample(btn) {
+  const samples = {
+    'Quantum Physics': 'Describe the observer effect in quantum mechanics and its implications on wave-particle duality.',
+    'History of Arts': 'Analyze the impact of the Renaissance movement on European art and culture in the 15th century.',
+    'Advanced Calculus': 'Explain the concept of double integrals and how to calculate the area enclosed by a polar curve.',
+    'Microservices Architecture': 'What is microservices architecture and how does it differ from a monolithic system? Discuss key benefits.',
+  };
+  const q = samples[btn.textContent.trim()] || btn.textContent + ' - explain in detail for exam preparation.';
+  document.getElementById('questionInput').value = q;
+  document.getElementById('charCount').textContent = q.length + ' chars';
+  document.getElementById('subjectInput').value = btn.textContent.trim();
+}
+
+async function handleAsk() {
+  const question = document.getElementById('questionInput').value.trim();
+  if (!question) { showToast('Please enter a question first.', 'error'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  const btnText = document.getElementById('submitBtnText');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner-big"></span>';
+
+  const subject = document.getElementById('subjectInput').value.trim() || 'General';
+
+  try {
+    const res = await apiFetch(API + '/ask', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', Authorization:'Bearer '+token },
+      body: JSON.stringify({ question, mode:selectedMode, marks:selectedMarks, document_id:docId, subject }),
+    });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to get answer');
+
+    // Store answer for the answer page (ephemeral session storage only)
+    sessionStorage.setItem('ai_answer', JSON.stringify(data));
+    window.location.href = '../answer_exam_mate/code.html';
+  } catch(e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Generate Solution';
+  }
+}
+</script>
+</body>
+</html>

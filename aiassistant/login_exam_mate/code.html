@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {},
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#0D0C22] font-body text-slate-200 min-h-screen flex items-center justify-center overflow-hidden">
+<!-- Abstract Futuristic Background Elements -->
+<div class="fixed inset-0 z-0">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#008A3F]/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[100px]"></div>
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay" data-alt="abstract flowing 3D digital waves in deep navy and emerald green colors with soft cinematic lighting and futuristic depth" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFPVWulnQ1KCmzTuUd5YswCPu0QCFCjBwTt8RQg-sUsT0UsfU6eF1CM018vL1yAetMK4mOW0f8Rc9G0kplnhmZdetvN2KNflxD7L5xPbcK1DSPFVUB-Yn1SY7cxUnd2NSAKD23jLApo3mAwmEomBLmdLNQm7ajVr3IlICplPV8lvwFsYvY7MdfDA6lPNTUFKK1fG5Z320oyGqjiFGjAJuMpB2Ol4Vc81RwRwk-i8U4aqCTIOAVQ_eFEOmT3jp2Jkbgpg5I5WliwsI"/>
+</div>
+<!-- Login Container -->
+<main class="relative z-10 w-full max-w-[440px] px-6">
+<!-- Brand Identity (Derived from TopAppBar JSON) -->
+<div class="flex flex-col items-center mb-10">
+<div class="w-16 h-16 bg-[#008A3F] rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(0,138,63,0.4)]">
+<span class="material-symbols-outlined text-white text-4xl" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<h1 class="text-3xl font-black text-white tracking-tight font-headline">Exam Mate</h1>
+<p class="text-slate-400 mt-2 font-medium">Your intelligent study companion</p>
+</div>
+<!-- Card-based Layout -->
+<div class="glass-panel rounded-[2rem] p-8 md:p-10 shadow-2xl">
+<div class="mb-8">
+<h2 class="text-xl font-bold text-white mb-2">Welcome Back</h2>
+<p class="text-slate-400 text-sm">Please enter your details to sign in</p>
+</div>
+<form action="#" class="space-y-6" method="POST">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="text-[11px] font-bold uppercase tracking-[0.1em] text-[#008A3F] ml-1" for="email">Email Address</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#008A3F] transition-colors" data-icon="mail">mail</span>
+<input class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-[#008A3F]/50 focus:border-[#008A3F] transition-all" id="email" name="email" placeholder="name@company.com" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center ml-1">
+<label class="text-[11px] font-bold uppercase tracking-[0.1em] text-[#008A3F]" for="password">Password</label>
+<a class="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 hover:text-[#008A3F] transition-colors" href="#">Forgot?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#008A3F] transition-colors" data-icon="lock">lock</span>
+<input class="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3.5 pl-12 pr-12 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-[#008A3F]/50 focus:border-[#008A3F] transition-all" id="password" name="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" type="button">
+<span class="material-symbols-outlined text-xl" data-icon="visibility">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center space-x-2 ml-1">
+<input class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-[#008A3F] focus:ring-[#008A3F] focus:ring-offset-slate-900" id="remember" type="checkbox"/>
+<label class="text-sm text-slate-400" for="remember">Stay signed in for 30 days</label>
+</div>
+<!-- Primary Button (Emerald Green #008A3F) -->
+<button class="w-full bg-[#008A3F] hover:bg-[#007335] text-white font-bold py-4 rounded-xl shadow-[0_4px_20px_rgba(0,138,63,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2" type="submit">
+<span>Sign In</span>
+<span class="material-symbols-outlined text-xl" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</form>
+<div class="mt-8 pt-8 border-t border-slate-800/50 text-center">
+<p class="text-slate-500 text-sm">Don't have an account?</p>
+<button class="mt-4 w-full bg-transparent border border-slate-700 hover:border-slate-500 text-white font-semibold py-3 rounded-xl transition-all">
+                    Create free account
+                </button>
+</div>
+</div>
+<!-- Simple Footer Links -->
+<footer class="mt-10 flex justify-center space-x-6 text-slate-500 text-[11px] font-bold uppercase tracking-widest">
+<a class="hover:text-[#008A3F] transition-colors" href="#">Privacy Policy</a>
+<span class="w-1 h-1 bg-slate-700 rounded-full my-auto"></span>
+<a class="hover:text-[#008A3F] transition-colors" href="#">Terms of Service</a>
+<span class="w-1 h-1 bg-slate-700 rounded-full my-auto"></span>
+<a class="hover:text-[#008A3F] transition-colors" href="#">Support</a>
+</footer>
+</main>
+<!-- Asymmetric Accent Elements (Minimalism/Futuristic) -->
+<div class="fixed top-12 right-12 hidden lg:block opacity-20 pointer-events-none">
+<div class="flex items-center space-x-2 text-[#008A3F]">
+<span class="h-[1px] w-12 bg-[#008A3F]"></span>
+<span class="text-[10px] tracking-[0.4em] uppercase font-bold">Protocol v2.4.0</span>
+</div>
+</div>
+<div class="fixed bottom-12 left-12 hidden lg:block opacity-20 pointer-events-none">
+<div class="grid grid-cols-2 gap-2">
+<div class="w-2 h-2 bg-[#008A3F]"></div>
+<div class="w-2 h-2 bg-slate-700"></div>
+<div class="w-2 h-2 bg-slate-700"></div>
+<div class="w-2 h-2 bg-[#008A3F]"></div>
+</div>
+</div>
+</body></html>

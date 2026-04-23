@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile - Exam Mate</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {},
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-[#0D0C22] dark:bg-slate-950 text-white shadow-lg shadow-black/20 docked full-width top-0 z-50 sticky">
+<div class="flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400 text-2xl" data-icon="auto_awesome">auto_awesome</span>
+<h1 class="text-xl font-bold text-white dark:text-slate-100 font-sans tracking-tight">Exam Mate</h1>
+</div>
+<!-- Desktop Navigation -->
+<nav class="hidden md:flex items-center space-x-8">
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-2 rounded-lg" href="#">Home</a>
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-2 rounded-lg" href="#">Upload</a>
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-2 rounded-lg" href="#">History</a>
+<a class="text-[#008A3F] font-semibold transition-colors px-3 py-2 rounded-lg" href="#">Profile</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-full border-2 border-[#008A3F] overflow-hidden">
+<img alt="User Profile" data-alt="professional portrait of a young male student with a friendly expression in a modern bright studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC--aY6NRQAapbprqhGGltsHaWAY-sjM7_daBHIfmswYFLIlAQ96Mm5fk3t9zWj0LsozYZoNN00jAnhZhO5S6O2hZkY_yZrDxUZVo3MCxz5IRo0Z5KUsx9GniibV2-T7x5f6aSMiEBa93Deo9buk3XlqRGcETFC-MZLXZibELpus18GZK2e8uVAWYpgUSbAZVVNm9tVY9yHWrMEjBkYZzwO9VZkSqINDX3bm3is8882yvh6dgJzOc6rGTYOICeUnNAihDyRkbv-uMY"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-5xl mx-auto px-6 py-8">
+<!-- Hero Profile Section -->
+<section class="relative mb-12 overflow-hidden rounded-3xl bg-[#0D0C22] p-8 md:p-12 text-white">
+<div class="absolute top-0 right-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-[#008A3F]/20 blur-3xl"></div>
+<div class="absolute bottom-0 left-0 -ml-20 -mb-20 h-64 w-64 rounded-full bg-blue-600/10 blur-3xl"></div>
+<div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+<div class="relative group">
+<div class="h-32 w-32 rounded-3xl border-4 border-[#008A3F] overflow-hidden rotate-3 group-hover:rotate-0 transition-transform duration-500">
+<img class="h-full w-full object-cover" data-alt="close up headshot of a confident university student against a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBj7hZQSBsctb2L2QJ5RGXW1SUstf6W3q6odQ4T-irt2nmOS3VM37tBFZVwPNpi4dgyN1uhcvNT5e04YQ3_opKxckDVaiQJxdpYER3sLrJyDzAhbO8LBcBVLAeTpNDiO-srnYDpIFo0DA039SUl6u21ZODjyI854N-R_Sfi1cyHiNKSvnBBqlIx6j4BhMPVNZ3yWf2rNXAvn-al-JWJmyzu_7vCIH5plXcIQI9pbN1958UFmDoaNbyP48vV9Ypbjwq2w6kT3a5SzqI"/>
+</div>
+<button class="absolute -bottom-2 -right-2 bg-[#008A3F] p-2 rounded-xl shadow-lg hover:scale-110 transition-all">
+<span class="material-symbols-outlined text-white text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+<div class="text-center md:text-left flex-1">
+<h2 class="text-3xl font-extrabold tracking-tight mb-2">Alex Johnson</h2>
+<p class="text-slate-400 font-medium mb-6">Master's Student • Computer Science</p>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Documents</p>
+<p class="text-xl font-bold text-[#008A3F]">124</p>
+</div>
+<div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Study Streak</p>
+<p class="text-xl font-bold text-orange-400">12 Days</p>
+</div>
+<div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Exam Score</p>
+<p class="text-xl font-bold text-blue-400">92%</p>
+</div>
+<div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Credits</p>
+<p class="text-xl font-bold text-purple-400">450</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Settings Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<!-- Theme Toggle Card -->
+<div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+<div>
+<div class="h-12 w-12 bg-[#0D0C22] rounded-2xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-[#008A3F]" data-icon="dark_mode">dark_mode</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Appearance</h3>
+<p class="text-sm text-slate-500 mb-6">Customize how Exam Mate looks on your device.</p>
+</div>
+<div class="flex bg-slate-100 p-1 rounded-xl">
+<button class="flex-1 py-2 rounded-lg text-sm font-semibold bg-white shadow-sm text-[#0D0C22]">Light</button>
+<button class="flex-1 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:text-[#008A3F] transition-colors">Dark</button>
+</div>
+</div>
+<!-- Language Card -->
+<div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+<div>
+<div class="h-12 w-12 bg-[#008A3F]/10 rounded-2xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-[#008A3F]" data-icon="language">language</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Language</h3>
+<p class="text-sm text-slate-500 mb-6">Choose your preferred language for study materials.</p>
+</div>
+<button class="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-[#008A3F] transition-all">
+<span class="font-semibold text-sm">English (US)</span>
+<span class="material-symbols-outlined text-slate-400 text-sm" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+<!-- Notifications Card -->
+<div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+<div>
+<div class="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-blue-600" data-icon="notifications">notifications</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Study Alerts</h3>
+<p class="text-sm text-slate-500 mb-6">Get reminded about upcoming tests and progress.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#008A3F]"></div>
+<span class="ms-3 text-sm font-medium text-slate-700">Enabled</span>
+</label>
+</div>
+<!-- Subscription Status (Large Card) -->
+<div class="md:col-span-2 bg-[#008A3F] p-8 rounded-3xl text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-full opacity-10">
+<img class="w-full h-full object-cover" data-alt="abstract geometric pattern with green and white clean lines and curves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYhqlL2IimxCr_1nowCYf44-_RaNKdW5ty6YjQvrKlByeOAovbsCkBnAiJQzieZHvzWoDPzYmI61H8G3c0vXdRof9wvNPLIzcrOWrDH2St2mc1FftkPMRtsFu82BhxMbIeCvdZjv8xCu1njT1g1sl_67_nc4MY5GTd4AOWADvo5wwmeYNBZb2fOV1t1H1qmGi-DOAk8VJcZVgbKCsmcO3gsmHyyoQ8orE6xZqDIxj7l1dDDt4YsxJc8Ibct7FgSmCgSp6SlHPoYwU"/>
+</div>
+<div class="relative z-10 text-center md:text-left">
+<h3 class="text-2xl font-black mb-2 uppercase tracking-tight">Pro Plan Active</h3>
+<p class="text-white/80 max-w-sm">Enjoy unlimited uploads, AI summaries, and priority exam prediction features.</p>
+</div>
+<div class="relative z-10">
+<button class="px-8 py-4 bg-[#0D0C22] text-white font-bold rounded-2xl shadow-xl hover:scale-105 transition-transform">
+                        Manage Plan
+                    </button>
+</div>
+</div>
+<!-- Security Card -->
+<div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+<div>
+<div class="h-12 w-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-slate-600" data-icon="lock">lock</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Security</h3>
+<p class="text-sm text-slate-500 mb-6">Manage your password and active sessions.</p>
+</div>
+<button class="text-[#008A3F] font-bold text-sm text-left hover:underline">Reset Password</button>
+</div>
+</div>
+<!-- Danger Zone -->
+<div class="flex flex-col md:flex-row items-center justify-between gap-6 p-8 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50">
+<div>
+<h4 class="font-bold text-lg text-[#0D0C22]">Account Actions</h4>
+<p class="text-sm text-slate-500">Sign out of your account or delete your data permanently.</p>
+</div>
+<div class="flex gap-4 w-full md:w-auto">
+<button class="flex-1 md:flex-none px-6 py-3 border border-slate-300 rounded-xl font-bold text-[#0D0C22] hover:bg-white transition-colors">
+                    Logout
+                </button>
+<button class="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">
+                    Delete
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:hidden">
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="home">home</span>
+<span class="text-[11px] font-medium uppercase tracking-wider mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="cloud_upload">cloud_upload</span>
+<span class="text-[11px] font-medium uppercase tracking-wider mt-1">Upload</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="history">history</span>
+<span class="text-[11px] font-medium uppercase tracking-wider mt-1">History</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1 scale-100 duration-150" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="text-[11px] font-medium uppercase tracking-wider mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

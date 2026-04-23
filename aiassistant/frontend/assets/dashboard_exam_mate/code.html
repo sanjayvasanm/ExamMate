@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+  tailwind.config={darkMode:"class",theme:{extend:{colors:{navy:{900:"#0D0C22",800:"#1A1935",700:"#2A294A"},emerald:{DEFAULT:"#008A3F",500:"#008A3F",600:"#007033",400:"#10B981"}},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},fontFamily:{headline:["Public Sans","sans-serif"],body:["Public Sans","sans-serif"]}}}}
+</script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .glass-panel { background:rgba(13,12,34,0.7); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.05); }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .skeleton { background:linear-gradient(90deg,#1a1935 25%,#2a294a 50%,#1a1935 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  nav a, nav div { cursor:pointer; }
+</style>
+</head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen">
+
+<!-- Top Bar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-[#0D0C22] flex justify-between items-center px-6 py-4 border-b border-slate-800 shadow-lg shadow-black/20">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#008A3F] text-2xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+    <span class="text-xl font-bold text-white tracking-tight">Exam Mate</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex gap-6 mr-6">
+      <button onclick="navigate('dashboard')" class="text-[#008A3F] font-semibold">Home</button>
+      <button onclick="navigate('upload')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Upload</button>
+      <button onclick="navigate('history')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">History</button>
+      <button onclick="navigate('ask')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Ask AI</button>
+    </div>
+    <div class="w-10 h-10 rounded-full bg-[#008A3F]/20 border border-[#008A3F]/30 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
+      <span id="avatarInitial" class="text-[#008A3F] font-bold text-lg"></span>
+    </div>
+  </div>
+</header>
+
+<main class="pt-24 pb-32 px-4 md:px-8 max-w-7xl mx-auto">
+  <!-- Hero -->
+  <section class="mb-12 relative overflow-hidden rounded-3xl bg-[#0D0C22] p-8 md:p-12 text-white shadow-2xl">
+    <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none">
+      <div class="absolute inset-0 bg-gradient-to-l from-[#008A3F]/40 to-transparent"></div>
+    </div>
+    <div class="relative z-10 max-w-2xl">
+      <p class="text-[#008A3F] font-bold text-sm uppercase tracking-widest mb-2" id="greetingText">Good day!</p>
+      <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Master your exams with AI precision.</h1>
+      <p class="text-slate-300 text-lg mb-8 leading-relaxed">Upload your study materials and let our AI generate summaries, flashcards, and practice quizzes in seconds.</p>
+      <div class="flex flex-wrap gap-4">
+        <button onclick="navigate('upload')" class="bg-[#008A3F] hover:bg-[#007033] text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#008A3F]/20">
+          <span class="material-symbols-outlined">add_circle</span> Upload Document
+        </button>
+        <button onclick="navigate('ask')" class="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-xl transition-all backdrop-blur-sm border border-white/10">
+          Ask AI Tutor
+        </button>
+      </div>
+    </div>
+    <div class="absolute -bottom-10 -right-10 w-64 h-64 bg-[#008A3F]/10 rounded-full blur-3xl"></div>
+  </section>
+
+  <!-- Quick Actions Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <div onclick="navigate('upload')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
+      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+        <span class="material-symbols-outlined text-8xl">cloud_upload</span>
+      </div>
+      <div class="w-14 h-14 bg-emerald-50 text-[#008A3F] rounded-2xl flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">cloud_upload</span>
+      </div>
+      <h3 class="text-xl font-bold mb-2">Upload Document</h3>
+      <p class="text-slate-500 mb-6">Convert PDFs, DOCX, or images into interactive study guides.</p>
+      <span class="text-[#008A3F] font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Upload Now <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+    </div>
+
+    <div onclick="navigate('ask')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
+      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+        <span class="material-symbols-outlined text-8xl">chat_bubble</span>
+      </div>
+      <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">psychology</span>
+      </div>
+      <h3 class="text-xl font-bold mb-2">Ask Question</h3>
+      <p class="text-slate-500 mb-6">Stuck on a concept? Ask our AI tutor for instant clarification.</p>
+      <span class="text-blue-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Start Chat <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+    </div>
+
+    <div onclick="navigate('history')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
+      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+        <span class="material-symbols-outlined text-8xl">history</span>
+      </div>
+      <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">history</span>
+      </div>
+      <h3 class="text-xl font-bold mb-2">View History</h3>
+      <p class="text-slate-500 mb-6">Access all your previous uploads and generated insights.</p>
+      <span class="text-purple-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Open Library <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+    </div>
+  </div>
+
+  <!-- Stats Bento -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Recent Activity -->
+    <div class="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+      <div class="flex justify-between items-center mb-8">
+        <h2 class="text-2xl font-bold">Recent Activity</h2>
+        <button onclick="navigate('history')" class="text-sm font-semibold text-slate-400 hover:text-[#008A3F]">View All</button>
+      </div>
+      <div id="activityList" class="space-y-4">
+        <!-- Loading skeletons -->
+        <div class="skeleton h-16 w-full"></div>
+        <div class="skeleton h-16 w-full"></div>
+        <div class="skeleton h-16 w-full"></div>
+      </div>
+    </div>
+
+    <!-- Stats Sidebar -->
+    <div class="lg:col-span-4 space-y-6">
+      <!-- Study Stats -->
+      <div class="bg-[#0D0C22] text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+        <div class="relative z-10">
+          <h3 class="text-lg font-bold mb-6">Study Stats</h3>
+          <div class="space-y-6">
+            <div>
+              <div class="flex justify-between text-sm mb-2">
+                <span class="text-slate-400">Questions Asked</span>
+                <span class="font-bold" id="statQuestions">0</span>
+              </div>
+              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div class="h-full bg-[#008A3F] rounded-full transition-all duration-1000" id="statQBar" style="width:0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-sm mb-2">
+                <span class="text-slate-400">Documents</span>
+                <span class="font-bold" id="statDocs">0</span>
+              </div>
+              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-400 rounded-full transition-all duration-1000" id="statDBar" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-white/10">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-400">Study Streak</span>
+                <span class="font-bold text-orange-400" id="statStreak">0 days</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="absolute bottom-0 right-0 p-4">
+          <span class="material-symbols-outlined text-[#008A3F]/20 text-7xl">trending_up</span>
+        </div>
+      </div>
+
+      <!-- AI Tip -->
+      <div class="bg-emerald-50 p-8 rounded-3xl border border-emerald-100">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="material-symbols-outlined text-[#008A3F]" style="font-variation-settings:'FILL' 1;">tips_and_updates</span>
+          <h3 class="font-bold text-emerald-900">AI Study Tip</h3>
+        </div>
+        <p class="text-emerald-800 text-sm leading-relaxed italic" id="aiTip">
+          "Spaced repetition is the most effective learning technique. Upload your notes and ask questions regularly for best results."
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav (mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:hidden rounded-t-2xl">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-[#008A3F] bg-green-50 rounded-xl px-3 py-1">
+    <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">cloud_upload</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">history</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">person</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+  </div>
+</nav>
+
+<!-- FAB -->
+<button onclick="navigate('ask')" class="fixed bottom-24 right-6 md:bottom-12 md:right-12 w-16 h-16 bg-[#008A3F] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40">
+  <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+</button>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+
+if (!token) { window.location.href = '../login_exam_mate/code.html'; }
+
+// UI Handlers
+
+// UI Handlers
+
+function setFallbackDashboard(message) {
+  document.getElementById('statQuestions').textContent = '0';
+  document.getElementById('statDocs').textContent = '0';
+  document.getElementById('statStreak').textContent = '0 days';
+  document.getElementById('statQBar').style.width = '0%';
+  document.getElementById('statDBar').style.width = '0%';
+  document.getElementById('activityList').innerHTML = message;
+}
+
+function setGreeting() {
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('greetingText').textContent = greet + ', ' + (user.name || 'Student') + '!';
+}
+
+function setAvatar() {
+  const init = (user.name || 'U').charAt(0).toUpperCase();
+  document.getElementById('avatarInitial').textContent = init;
+}
+
+const tips = [
+  '"Spaced repetition is the most effective learning technique. Upload your notes and ask questions regularly."',
+  '"Break large topics into smaller chunks. Ask specific questions for deeper understanding."',
+  '"Review your question history weekly to reinforce your memory of key concepts."',
+  '"Teach what you learn to someone else — it forces you to understand it deeply."',
+];
+
+async function loadDashboard() {
+  setGreeting(); setAvatar();
+  document.getElementById('aiTip').textContent = tips[Math.floor(Math.random() * tips.length)];
+
+  try {
+    const res = await apiFetch(API + '/dashboard', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res) return;
+    if (!res.ok) {
+      showToast('Failed to load dashboard', 'error');
+      setFallbackDashboard('<div class="text-center py-4 text-slate-400">Failed to load activity. Is the backend running?</div>');
+      return;
+    }
+    const data = await res.json();
+
+    // Stats
+    document.getElementById('statQuestions').textContent = data.total_questions;
+    document.getElementById('statDocs').textContent = data.total_documents;
+    document.getElementById('statStreak').textContent = data.study_streak + ' days';
+    document.getElementById('statQBar').style.width = Math.min(data.total_questions * 5, 100) + '%';
+    document.getElementById('statDBar').style.width = Math.min(data.total_documents * 10, 100) + '%';
+
+    // Activity list
+    const list = document.getElementById('activityList');
+    const all = [
+      ...data.recent_questions.map(q => ({ type:'question', label:q.question, sub:q.subject + ' • ' + q.mode, icon:'psychology', iconBg:'bg-blue-100 text-blue-600', id:q._id })),
+      ...data.recent_documents.map(d => ({ type:'doc', label:d.filename, sub:'Uploaded • ' + d.file_type, icon:'picture_as_pdf', iconBg:'bg-red-100 text-red-600', id:d.doc_id })),
+    ].slice(0,5);
+
+    if (all.length === 0) {
+      list.innerHTML = '<div class="text-center py-8 text-slate-400"><span class="material-symbols-outlined text-4xl block mb-2">inbox</span>No activity yet. Upload a document or ask a question!</div>';
+      return;
+    }
+
+    list.innerHTML = all.map(item => `
+      <div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group cursor-pointer" onclick="handleActivityClick('${item.type}','${item.id}')">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl ${item.iconBg} flex items-center justify-center">
+            <span class="material-symbols-outlined">${item.icon}</span>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm truncate max-w-[200px]">${item.label}</h4>
+            <p class="text-xs text-slate-400">${item.sub}</p>
+          </div>
+        </div>
+        <button class="opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 p-2 rounded-lg text-slate-600 hover:text-[#008A3F] transition-all">
+          <span class="material-symbols-outlined text-sm">open_in_new</span>
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    console.error(e);
+    showToast('Could not connect to backend', 'error');
+    setFallbackDashboard('<div class="text-center py-4 text-slate-400">Failed to load activity. Is the backend running?</div>');
+  }
+}
+
+function handleActivityClick(type, id) {
+  if (type === 'question') {
+    sessionStorage.setItem('view_question_id', id);
+    navigate('history');
+  } else {
+    navigate('upload');
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

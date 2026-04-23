@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Answer</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:"#008A3F",navy:"#0D0C22"},fontFamily:{body:["Public Sans","sans-serif"]}}}}</script>
+<!-- Mermaid.js v10 — full CDN with self-correction support -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; background:#0D0C22; color:#e2e8f0; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .text-highlight { color:#008A3F; font-weight:600; }
+  .glass-card { background:rgba(255,255,255,0.03); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.info { background:#334155;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .kw { background:rgba(0,138,63,0.15); color:#10b981; border-radius:4px; padding:0 3px; font-weight:600; }
+  .fade-in { opacity:0; transform:translateY(16px); animation:fadein .5s forwards; }
+  @keyframes fadein { to { opacity:1; transform:none; } }
+  .fade-in:nth-child(2) { animation-delay:.1s; }
+  .fade-in:nth-child(3) { animation-delay:.2s; }
+  .fade-in:nth-child(4) { animation-delay:.3s; }
+
+  /* ── Mermaid diagram container ─────────────────────────────────────────── */
+  .mermaid-wrapper {
+    background: linear-gradient(135deg,rgba(0,138,63,0.04),rgba(16,185,129,0.02));
+    border: 1px solid rgba(0,138,63,0.2);
+    border-radius: 20px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: auto;
+    min-height: 220px;
+  }
+  .mermaid-wrapper svg { max-width:100%; height:auto; display:block; margin:auto; }
+  .mermaid-badge {
+    position:absolute; top:14px; right:14px;
+    background:rgba(0,138,63,0.15); color:#10b981;
+    border:1px solid rgba(0,138,63,0.3); border-radius:20px;
+    font-size:11px; font-weight:700; padding:3px 10px;
+    letter-spacing:.06em; text-transform:uppercase;
+  }
+  .diagram-loading {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; min-height:180px; color:#64748b;
+  }
+  .diagram-spinner {
+    width:40px; height:40px;
+    border:3px solid rgba(0,138,63,0.2);
+    border-top-color:#008A3F;
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .diagram-error-box {
+    background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.25);
+    border-radius:14px; padding:16px 20px; font-size:13px;
+    color:#fca5a5; white-space:pre-wrap; font-family:monospace;
+    max-height:160px; overflow-y:auto;
+  }
+  .diagram-retry-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.3);
+    color:#fbbf24; border-radius:20px; font-size:11px; font-weight:700;
+    padding:4px 12px; animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+  .code-preview {
+    background:#111827; border-radius:12px; padding:14px 18px;
+    font-family:'Courier New',monospace; font-size:12px; color:#94a3b8;
+    white-space:pre-wrap; overflow-x:auto; max-height:200px; overflow-y:auto;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .tab-btn { cursor:pointer; padding:6px 18px; border-radius:20px; font-size:13px; font-weight:600;
+    border:1px solid transparent; transition:all .2s; color:#64748b; }
+  .tab-btn.active { background:rgba(0,138,63,0.12); border-color:rgba(0,138,63,0.35); color:#10b981; }
+</style>
+</head>
+<body class="bg-[#0D0C22] text-slate-200 min-h-screen pb-24">
+
+<!-- Header -->
+<header class="bg-[#0D0C22] text-white flex justify-between items-center px-6 py-4 w-full sticky top-0 border-b border-slate-800 shadow-lg shadow-black/20 z-50">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#008A3F]">auto_awesome</span>
+    <h1 class="text-xl font-bold text-white tracking-tight">Exam Mate</h1>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex gap-6 mr-6">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">Home</button>
+      <button onclick="navigate('history')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">History</button>
+      <button onclick="navigate('ask')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">Ask Again</button>
+    </div>
+    <div class="w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
+      <span id="avatarInit" class="text-[#008A3F] font-bold"></span>
+    </div>
+  </div>
+</header>
+
+<!-- No data state -->
+<div id="noDataState" class="hidden max-w-xl mx-auto px-6 pt-32 text-center">
+  <span class="material-symbols-outlined text-6xl text-slate-700 block mb-4">psychology_alt</span>
+  <h2 class="text-2xl font-bold text-white mb-3">No Answer Loaded</h2>
+  <p class="text-slate-400 mb-8">Go back and ask a question to see the AI-generated answer here.</p>
+  <button onclick="navigate('ask')" class="bg-[#008A3F] text-white font-bold px-8 py-4 rounded-2xl hover:bg-[#007033] transition-colors">
+    Ask a Question
+  </button>
+</div>
+
+<!-- Main content -->
+<main id="mainContent" class="max-w-4xl mx-auto px-6 py-12 hidden">
+
+  <!-- Breadcrumb + Title -->
+  <div class="mb-12 fade-in">
+    <nav class="flex items-center gap-2 text-slate-500 text-sm mb-4">
+      <button onclick="navigate('ask')" class="hover:text-[#008A3F] transition-colors">← Ask Question</button>
+      <span class="material-symbols-outlined text-xs">chevron_right</span>
+      <span id="answerSubject">General</span>
+    </nav>
+    <div class="flex items-start justify-between gap-4 mb-2">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight flex-1" id="answerTitle">Loading...</h2>
+      <span class="shrink-0 px-3 py-1 rounded-full text-xs font-bold bg-[#008A3F]/10 text-[#008A3F] border border-[#008A3F]/20" id="marksTag"></span>
+    </div>
+    <p class="text-slate-400 text-sm" id="questionLabel"></p>
+  </div>
+
+  <!-- Introduction -->
+  <section class="mb-10 fade-in hidden" id="introSection">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Introduction</span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+    <div class="glass-card p-8 rounded-2xl leading-relaxed text-slate-300 italic" id="introBlock"></div>
+  </section>
+
+  <!-- Definition -->
+  <section class="mb-10 fade-in">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Definition</span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+    <div class="glass-card p-8 rounded-2xl leading-relaxed text-lg" id="definitionBlock"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       MERMAID DIAGRAM SECTION — self-correcting AI-powered diagrams
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="mb-10 fade-in" id="diagramSection" style="display:none;">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">
+        <span class="material-symbols-outlined text-sm align-middle" style="font-variation-settings:'FILL' 1;">schema</span>
+        AI Diagram
+      </span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+
+    <!-- Diagram tabs: Render / Code -->
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex gap-2" id="diagramTabs">
+        <button class="tab-btn active" onclick="switchTab('render')" id="tab-render">Diagram</button>
+        <button class="tab-btn" onclick="switchTab('code')" id="tab-code">Source Code</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="diagramRetryBadge" class="diagram-retry-badge hidden">
+          <span class="material-symbols-outlined text-xs">autorenew</span>
+          <span id="retryText">Fixing…</span>
+        </span>
+        <button onclick="reRenderDiagram()" title="Re-render diagram"
+          class="text-slate-500 hover:text-[#008A3F] transition-colors p-1 rounded-lg hover:bg-[#008A3F]/10">
+          <span class="material-symbols-outlined text-lg">refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Render view -->
+    <div id="diagramRenderView">
+      <div class="mermaid-wrapper" id="mermaidContainer">
+        <span class="mermaid-badge">Mermaid.js</span>
+        <!-- Loading state -->
+        <div class="diagram-loading" id="diagramLoading">
+          <div class="diagram-spinner"></div>
+          <span class="text-sm">Rendering diagram…</span>
+        </div>
+        <!-- Rendered SVG injected here -->
+        <div id="mermaidOutput"></div>
+        <!-- Error fallback -->
+        <div id="diagramErrorBox" class="hidden mt-4">
+          <p class="text-xs text-red-400 font-bold mb-2 flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">error</span> Parse Error (AI is fixing…)
+          </p>
+          <div class="diagram-error-box" id="diagramErrorText"></div>
+        </div>
+      </div>
+      <!-- Title + description -->
+      <p class="text-xs text-slate-500 mt-3 text-center italic" id="diagramCaption"></p>
+    </div>
+
+    <!-- Source code view (hidden by default) -->
+    <div id="diagramCodeView" class="hidden">
+      <div class="code-preview" id="mermaidCodeBlock"></div>
+      <button onclick="copyDiagramCode()"
+        class="mt-3 flex items-center gap-2 text-xs text-slate-400 hover:text-[#008A3F] transition-colors">
+        <span class="material-symbols-outlined text-sm">content_copy</span> Copy Mermaid Code
+      </button>
+    </div>
+  </section>
+
+  <!-- AI Generated Image -->
+  <section class="mb-10 fade-in hidden" id="imageSection">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">AI Illustration</span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+    <div class="glass-card p-4 rounded-2xl overflow-hidden relative group min-h-[300px] flex flex-col items-center justify-center">
+        <div id="imageLoader" class="absolute inset-0 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm z-10 hidden">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-[#008A3F] border-t-transparent"></div>
+        </div>
+        <img id="aiGeneratedImg" src="" alt="AI Visual Aid" class="w-full h-auto object-cover rounded-xl shadow-2xl transition-all duration-500"
+             onerror="this.parentElement.parentElement.classList.add('hidden')">
+        <div class="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            <button onclick="regenerateImage()" class="bg-[#008A3F] text-white text-xs px-5 py-2.5 rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all flex items-center gap-2 font-bold">
+                <span class="material-symbols-outlined text-sm">refresh</span> New Illustration
+            </button>
+        </div>
+        <p class="text-center text-xs text-slate-400 mt-4 italic px-4" id="imageCaption"></p>
+    </div>
+  </section>
+
+  <!-- Working Process -->
+  <section class="mb-10 fade-in hidden" id="workingSection">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Working &amp; Process</span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+    <div class="glass-card p-8 rounded-2xl leading-relaxed text-slate-300" id="workingBlock"></div>
+  </section>
+
+  <!-- Bento Grid (Explanation & Points) -->
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-10 fade-in">
+    <!-- Explanation -->
+    <div class="md:col-span-7 glass-card p-8 rounded-2xl">
+      <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#008A3F]">menu_book</span> Detailed Explanation
+      </h3>
+      <div class="text-slate-400 leading-relaxed space-y-4" id="explanationBlock"></div>
+    </div>
+    <!-- Key Points -->
+    <div class="md:col-span-5 bg-[#008A3F]/5 border border-[#008A3F]/20 p-8 rounded-2xl">
+      <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+         <span class="material-symbols-outlined text-[#008A3F]">star</span> Key Features
+      </h3>
+      <ul class="space-y-4" id="pointsList"></ul>
+    </div>
+  </div>
+
+  <!-- Advantages & Disadvantages -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 fade-in hidden" id="adsSection">
+      <div class="bg-green-900/10 border border-green-900/30 p-8 rounded-2xl">
+          <h3 class="text-lg font-bold text-green-400 mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined">thumb_up</span> Advantages
+          </h3>
+          <ul class="space-y-3 text-slate-300 text-sm" id="advantagesList"></ul>
+      </div>
+      <div class="bg-red-900/10 border border-red-900/30 p-8 rounded-2xl">
+          <h3 class="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined">thumb_down</span> Disadvantages
+          </h3>
+          <ul class="space-y-3 text-slate-300 text-sm" id="disadvantagesList"></ul>
+      </div>
+  </div>
+
+  <!-- Example & Applications -->
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-10 fade-in hidden" id="extraSection">
+      <div class="md:col-span-6 glass-card p-8 rounded-2xl border-t-2 border-t-[#008A3F]">
+          <h3 class="text-lg font-bold text-white mb-4">Example / Case Study</h3>
+          <p class="text-slate-400 text-sm italic" id="exampleBlock"></p>
+      </div>
+      <div class="md:col-span-6 glass-card p-8 rounded-2xl border-t-2 border-t-[#008A3F]">
+           <h3 class="text-lg font-bold text-white mb-4">Real-world Applications</h3>
+           <ul class="space-y-2 text-slate-400 text-sm" id="applicationsList"></ul>
+      </div>
+  </div>
+
+  <!-- Keywords Section -->
+  <section id="keywordsSection" class="mb-10 fade-in">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="h-px flex-1 bg-slate-800"></div>
+      <span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Key Terms</span>
+      <div class="h-px w-8 bg-slate-800"></div>
+    </div>
+    <div id="keywordsBlock" class="flex flex-wrap gap-2"></div>
+  </section>
+
+  <!-- Conclusion -->
+  <section class="glass-card p-10 rounded-3xl border-l-4 border-l-[#008A3F] mb-10 fade-in" id="conclusionSection">
+    <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#008A3F]">analytics</span> Conclusion
+    </h3>
+    <p class="text-slate-400 leading-relaxed italic" id="conclusionBlock"></p>
+  </section>
+
+  <!-- Action Bar -->
+  <div class="flex flex-wrap gap-4 justify-center fade-in">
+    <button onclick="copyAnswer()" class="bg-[#008A3F] text-white px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:scale-105 hover:bg-[#007033] transition-all">
+      <span class="material-symbols-outlined">content_copy</span> Copy Answer
+    </button>
+    <button onclick="navigate('ask')" class="border border-slate-700 text-slate-300 px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
+      <span class="material-symbols-outlined">refresh</span> Ask Another
+    </button>
+    <button onclick="navigate('history')" class="border border-slate-700 text-slate-300 px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
+      <span class="material-symbols-outlined">history</span> View History
+    </button>
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-[#0D0C22] rounded-t-2xl border-t border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">home</span><span class="text-[11px] font-medium uppercase">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">cloud_upload</span><span class="text-[11px] font-medium uppercase">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">history</span><span class="text-[11px] font-medium uppercase">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">person</span><span class="text-[11px] font-medium uppercase">Profile</span>
+  </div>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   Exam Mate — Answer Page
+   Features:
+   • Full Mermaid.js v10 diagram rendering
+   • Self-correcting error loop (up to MAX_RETRIES via /api/fix-diagram)
+   • Diagram tab toggle (Render / Source Code)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+if (!token) window.location.href = '../login_exam_mate/code.html';
+
+document.getElementById('avatarInit').textContent = (user.name||'U').charAt(0).toUpperCase();
+
+// ── Mermaid initialisation ────────────────────────────────────────────────────
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#008A3F',
+    primaryTextColor: '#e2e8f0',
+    primaryBorderColor: '#10b981',
+    lineColor: '#475569',
+    secondaryColor: '#1e293b',
+    tertiaryColor: '#0f172a',
+    background: '#0D0C22',
+    mainBkg: '#1a1935',
+    nodeBorder: '#008A3F',
+    clusterBkg: '#1e293b',
+    titleColor: '#e2e8f0',
+    edgeLabelBackground: '#1e293b',
+    fontFamily: 'Public Sans, sans-serif',
+  },
+  securityLevel: 'strict',
+  logLevel: 'error',
+});
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const MAX_RETRIES = 3;   // how many auto-fix attempts before giving up
+let _currentDiagram = null;   // { code, diagram_type, title, description }
+let _activeTab = 'render';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getStoredAnswer() {
+  // Use sessionStorage only to ensure sensitive AI answers are not persisted 
+  // on disk after the session ends.
+  return sessionStorage.getItem('ai_answer');
+}
+
+function syncAnswerToSession(raw) {
+  if (raw && !sessionStorage.getItem('ai_answer')) {
+    sessionStorage.setItem('ai_answer', raw);
+  }
+}
+
+function highlightKeywords(text, keywords) {
+  if (!keywords || !keywords.length) return text;
+  keywords.forEach(kw => {
+    const re = new RegExp('\\b(' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'gi');
+    text = text.replace(re, '<span class="kw">$1</span>');
+  });
+  return text;
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  _activeTab = tab;
+  document.getElementById('diagramRenderView').classList.toggle('hidden', tab !== 'render');
+  document.getElementById('diagramCodeView').classList.toggle('hidden', tab !== 'code');
+  document.getElementById('tab-render').classList.toggle('active', tab === 'render');
+  document.getElementById('tab-code').classList.toggle('active', tab === 'code');
+}
+
+// ── Mermaid self-correcting renderer ─────────────────────────────────────────
+/**
+ * Tries to render `code` as Mermaid.  On failure, calls /api/fix-diagram
+ * (with the parse error + broken code) and retries up to MAX_RETRIES times.
+ *
+ * @param {string} code         - Mermaid code to render
+ * @param {string} diagramType  - e.g. "flowchart", "sequenceDiagram"
+ * @param {number} attempt      - current attempt number (starts at 1)
+ */
+async function renderMermaidWithCorrection(code, diagramType, attempt = 1) {
+  const loadingEl   = document.getElementById('diagramLoading');
+  const outputEl    = document.getElementById('mermaidOutput');
+  const errorBoxEl  = document.getElementById('diagramErrorBox');
+  const errorTextEl = document.getElementById('diagramErrorText');
+  const retryBadge  = document.getElementById('diagramRetryBadge');
+  const retryText   = document.getElementById('retryText');
+
+  // Show loading, hide previous output/error
+  loadingEl.classList.remove('hidden');
+  outputEl.innerHTML = '';
+  errorBoxEl.classList.add('hidden');
+  errorTextEl.textContent = '';
+
+  // Update source-code view
+  if (_currentDiagram) {
+    document.getElementById('mermaidCodeBlock').textContent = code;
+  }
+
+  try {
+    // Unique element ID per attempt (mermaid requires a fresh id)
+    const renderId = `mmd_${Date.now()}_${attempt}`;
+    const { svg } = await mermaid.render(renderId, code);
+
+    // Success — inject SVG
+    outputEl.innerHTML = svg;
+    loadingEl.classList.add('hidden');
+    retryBadge.classList.add('hidden');
+
+    // Save corrected code back to the stored diagram object
+    if (_currentDiagram) _currentDiagram.code = code;
+    document.getElementById('mermaidCodeBlock').textContent = code;
+
+  } catch (parseErr) {
+    const errMsg = (parseErr && parseErr.message) ? parseErr.message : String(parseErr);
+    console.warn(`[Mermaid] Parse error (attempt ${attempt}/${MAX_RETRIES}):`, errMsg);
+
+    if (attempt >= MAX_RETRIES) {
+      // Give up — show the error to the user
+      loadingEl.classList.add('hidden');
+      retryBadge.classList.add('hidden');
+      errorBoxEl.classList.remove('hidden');
+      errorTextEl.textContent = errMsg;
+      showToast('Could not render diagram after ' + MAX_RETRIES + ' attempts.', 'error');
+      return;
+    }
+
+    // Show retry badge
+    retryBadge.classList.remove('hidden');
+    retryText.textContent = `Auto-fixing (${attempt}/${MAX_RETRIES})…`;
+
+    // Ask backend to fix the broken code
+    try {
+      const res = await apiFetch(API + '/fix-diagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ code, error: errMsg, diagram_type: diagramType }),
+      });
+
+      if (!res) throw new Error('No response from fix-diagram API');
+      const fixData = await res.json();
+      if (!res.ok) throw new Error(fixData.error || 'Fix-diagram API error');
+
+      const fixedCode = (fixData.code || '').trim();
+      if (!fixedCode) throw new Error('Empty fixed code returned');
+
+      // Recurse with the corrected code
+      await renderMermaidWithCorrection(fixedCode, diagramType, attempt + 1);
+
+    } catch (apiErr) {
+      console.error('[Mermaid] Fix-diagram API failed:', apiErr);
+      loadingEl.classList.add('hidden');
+      retryBadge.classList.add('hidden');
+      errorBoxEl.classList.remove('hidden');
+      errorTextEl.textContent = `Parse error: ${errMsg}\n\nFix API error: ${apiErr.message}`;
+    }
+  }
+}
+
+// ── Public: force re-render ───────────────────────────────────────────────────
+async function reRenderDiagram() {
+  if (!_currentDiagram) return;
+  await renderMermaidWithCorrection(_currentDiagram.code, _currentDiagram.diagram_type, 1);
+}
+
+// ── Copy diagram source code ──────────────────────────────────────────────────
+function copyDiagramCode() {
+  if (!_currentDiagram) return;
+  navigator.clipboard.writeText(_currentDiagram.code)
+    .then(() => showToast('Mermaid code copied!', 'success'))
+    .catch(() => showToast('Copy failed — try manually.', 'error'));
+}
+
+// ── Main answer renderer ──────────────────────────────────────────────────────
+async function renderAnswer(data) {
+  const a   = data.answer || {};
+  const kws = data.keywords || [];
+
+  document.getElementById('answerTitle').textContent   = a.title || 'AI Answer';
+  document.getElementById('answerSubject').textContent = data.subject || 'General';
+  document.getElementById('questionLabel').textContent = '"' + (data.question || '') + '"';
+  document.getElementById('marksTag').textContent      = data.marks ? data.marks + ' Marks' : '';
+
+  // Introduction
+  const intro = a.introduction || '';
+  if (intro) {
+    document.getElementById('introSection').classList.remove('hidden');
+    document.getElementById('introBlock').innerHTML = highlightKeywords(intro, kws);
+  }
+
+  // Definition
+  document.getElementById('definitionBlock').innerHTML = highlightKeywords(a.definition || '—', kws);
+
+  // ── Mermaid Diagram ───────────────────────────────────────────────────────
+  const diagrams = Array.isArray(data.diagrams) ? data.diagrams : [];
+  const mermaidDiagram = diagrams.find(d => d && d.type === 'mermaid');
+
+  if (mermaidDiagram && mermaidDiagram.code) {
+    _currentDiagram = { ...mermaidDiagram };
+
+    const diagramSection = document.getElementById('diagramSection');
+    diagramSection.style.display = '';
+    document.getElementById('diagramCaption').textContent =
+      mermaidDiagram.description || mermaidDiagram.title || '';
+    document.getElementById('mermaidCodeBlock').textContent = mermaidDiagram.code;
+
+    // Kick off rendering with auto-correction
+    await renderMermaidWithCorrection(
+      mermaidDiagram.code,
+      mermaidDiagram.diagram_type || 'graph',
+      1
+    );
+  }
+
+  // ── AI Image ─────────────────────────────────────────────────────────────
+  const imgUrl = a.image_url || '';
+  if (imgUrl) {
+    document.getElementById('imageSection').classList.remove('hidden');
+    document.getElementById('aiGeneratedImg').src = imgUrl;
+    document.getElementById('imageCaption').textContent = a.image_prompt || 'Educational visualisation';
+  }
+
+  // Explanation
+  const expParas = (a.explanation || '').split(/(?<=\.)\s+/).filter(Boolean);
+  document.getElementById('explanationBlock').innerHTML =
+    expParas.map(p => `<p>${highlightKeywords(p, kws)}</p>`).join('');
+
+  // Working Process
+  if (a.working_process) {
+    document.getElementById('workingSection').classList.remove('hidden');
+    document.getElementById('workingBlock').innerHTML = highlightKeywords(a.working_process, kws);
+  }
+
+  // Advantages & Disadvantages
+  if (a.advantages?.length || a.disadvantages?.length) {
+    document.getElementById('adsSection').classList.remove('hidden');
+    document.getElementById('advantagesList').innerHTML =
+      (a.advantages || []).map(i => `<li>• ${highlightKeywords(i, kws)}</li>`).join('');
+    document.getElementById('disadvantagesList').innerHTML =
+      (a.disadvantages || []).map(i => `<li>• ${highlightKeywords(i, kws)}</li>`).join('');
+  }
+
+  // Example & Applications
+  if (a.example || a.applications?.length) {
+    document.getElementById('extraSection').classList.remove('hidden');
+    document.getElementById('exampleBlock').innerHTML =
+      highlightKeywords(a.example || 'No specific example provided.', kws);
+    document.getElementById('applicationsList').innerHTML =
+      (a.applications || []).map(i => `<li>• ${highlightKeywords(i, kws)}</li>`).join('');
+  }
+
+  // Key Points
+  const pts = a.points || [];
+  document.getElementById('pointsList').innerHTML = pts.length
+    ? pts.map(p => `
+        <li class="flex gap-3">
+          <span class="material-symbols-outlined text-[#008A3F] mt-1 shrink-0" style="font-variation-settings:'FILL' 1;">check_circle</span>
+          <span class="text-slate-200">${highlightKeywords(p, kws)}</span>
+        </li>`).join('')
+    : '<li class="text-slate-500 text-sm">No key points generated.</li>';
+
+  // Keywords Pills
+  const kwSec = document.getElementById('keywordsSection');
+  const kwBlock = document.getElementById('keywordsBlock');
+  if (kws.length) {
+    kwSec.classList.remove('hidden');
+    kwBlock.innerHTML = kws.map(k =>
+      `<span class="px-4 py-2 rounded-full bg-[#008A3F]/10 border border-[#008A3F]/20 text-[#008A3F] text-sm font-semibold">${k}</span>`
+    ).join('');
+  } else {
+    kwSec.classList.add('hidden');
+  }
+
+  // Conclusion
+  const conc = a.conclusion || '';
+  if (conc) {
+    document.getElementById('conclusionBlock').innerHTML = highlightKeywords(conc, kws);
+  } else {
+    document.getElementById('conclusionSection').classList.add('hidden');
+  }
+
+  document.getElementById('mainContent').classList.remove('hidden');
+}
+
+// ── Copy full answer ──────────────────────────────────────────────────────────
+function copyAnswer() {
+  const raw = getStoredAnswer();
+  if (!raw) return;
+  const data = JSON.parse(raw);
+  const a = data.answer || {};
+  const text = [
+    'QUESTION: ' + data.question,
+    '',
+    'TITLE: ' + a.title,
+    '',
+    'DEFINITION: ' + a.definition,
+    '',
+    'EXPLANATION: ' + a.explanation,
+    '',
+    'KEY POINTS:',
+    ...(a.points || []).map((p, i) => (i+1)+'. '+p),
+    '',
+    'CONCLUSION: ' + a.conclusion,
+  ].join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => showToast('Answer copied to clipboard!', 'success'))
+    .catch(() => showToast('Copy failed.', 'error'));
+}
+
+// ── Regenerate AI image ───────────────────────────────────────────────────────
+function regenerateImage() {
+  const raw = getStoredAnswer();
+  if (!raw) return;
+  const data = JSON.parse(raw);
+  const a = data.answer || {};
+  const title = a.title || data.question;
+
+  const loader = document.getElementById('imageLoader');
+  const img = document.getElementById('aiGeneratedImg');
+
+  loader.classList.remove('hidden');
+  img.style.filter = 'blur(10px) grayscale(1)';
+
+  const randSeed = Math.floor(Math.random() * 10000);
+  const newPrompt = `Technical architecture diagram of ${title}, professional educational style, clear labels, white background, high detail, v${randSeed}`;
+  const newUrl = `https://pollinations.ai/p/${encodeURIComponent(newPrompt)}?width=1024&height=1024&seed=${randSeed}`;
+
+  img.src = newUrl;
+  img.onload = () => { loader.classList.add('hidden'); img.style.filter = 'none'; };
+  document.getElementById('imageCaption').textContent = 'Generating illustration…';
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+const raw = getStoredAnswer();
+if (raw) {
+  try {
+    const data = JSON.parse(raw);
+    syncAnswerToSession(raw);
+    renderAnswer(data);
+  } catch (e) {
+    document.getElementById('noDataState').classList.remove('hidden');
+  }
+} else {
+  document.getElementById('noDataState').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

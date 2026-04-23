@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Answer Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#008A3F",
+                        navy: "#0D0C22",
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans"],
+                        body: ["Public Sans"],
+                        label: ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #0D0C22;
+        }
+        .text-highlight {
+            color: #008A3F;
+            font-weight: 600;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-navy text-slate-200 min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#0D0C22] dark:bg-slate-950 text-white font-sans tracking-tight docked full-width top-0 border-b border-slate-800 shadow-lg shadow-black/20 flex justify-between items-center px-6 py-4 w-full sticky z-50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400" data-icon="auto_awesome">auto_awesome</span>
+<h1 class="text-xl font-bold text-white dark:text-slate-100">Exam Mate</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex gap-6">
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded" href="#">History</a>
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded" href="#">Upload</a>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-slate-700 overflow-hidden">
+<img alt="User Profile" data-alt="professional headshot of a student smiling against a neutral grey studio background with soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvVdn5BiBrIVNy6A78xzll9ikyREjhmEEQOvRoKBYrIGMIE9EKaVrRYvfzi-RXcNVXYrVqDLIdvy4tUz9KgSy-7Wn9KTIM4buMnH9tpQPpKueQy1xwKfyJE7wSUvzsRYKoguc12hh8mG7Quj6UfZsM9nU0pmrCcx1h-VEEucdHLLhjuX2uki_9HbroIEOPdKbBBbrCUkpQyWrxiUI4oEmF-alQlMK_I0T3Wo83rqddHgtRBVHQ6sTLJLwIvapHq8202n-sq9zZTDE"/>
+</div>
+</div>
+</header>
+<main class="max-w-4xl mx-auto px-6 py-12">
+<!-- Title & Breadcrumb -->
+<div class="mb-12">
+<nav class="flex items-center gap-2 text-slate-500 text-sm mb-4">
+<span>Computer Science</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span>Software Architecture</span>
+</nav>
+<h2 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                Understanding <span class="text-highlight">Microservices Architecture</span> and Distributed Systems
+            </h2>
+</div>
+<!-- Definition Section -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-4">
+<div class="h-px flex-1 bg-slate-800"></div>
+<span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Definition</span>
+<div class="h-px w-8 bg-slate-800"></div>
+</div>
+<div class="glass-card p-8 rounded-2xl leading-relaxed text-lg">
+<p>
+<span class="text-highlight">Microservices</span> is an architectural style that structures an application as a collection of services that are <span class="text-highlight">highly maintainable</span> and testable, loosely coupled, independently deployable, and organized around business capabilities.
+                </p>
+</div>
+</section>
+<!-- Asymmetric Bento-style Content Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-12">
+<!-- Explanation Container -->
+<div class="md:col-span-7 glass-card p-8 rounded-2xl">
+<h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#008A3F]" data-icon="lightbulb">lightbulb</span>
+                    Deep Dive Explanation
+                </h3>
+<div class="space-y-4 text-slate-400">
+<p>
+                        Unlike the traditional <span class="text-highlight">Monolithic</span> approach, microservices allow large teams to build complex applications by breaking them into smaller, manageable pieces. Each service typically has its own <span class="text-highlight">database</span> to ensure decoupling.
+                    </p>
+<p>
+                        Communication between these services usually happens via <span class="text-highlight">REST APIs</span> or message brokers like RabbitMQ. This ensures that a failure in one service—for example, the payment gateway—does not necessarily crash the entire <span class="text-highlight">ecosystem</span>.
+                    </p>
+</div>
+</div>
+<!-- Key Points Container -->
+<div class="md:col-span-5 bg-[#008A3F]/10 border border-[#008A3F]/20 p-8 rounded-2xl">
+<h3 class="text-xl font-bold text-white mb-6">Key Characteristics</h3>
+<ul class="space-y-4">
+<li class="flex gap-3">
+<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
+<span class="text-slate-200"><span class="font-bold">Scalability:</span> Scale only the components that need more resources.</span>
+</li>
+<li class="flex gap-3">
+<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
+<span class="text-slate-200"><span class="font-bold">Agility:</span> Frequent, reliable delivery of complex applications.</span>
+</li>
+<li class="flex gap-3">
+<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
+<span class="text-slate-200"><span class="font-bold">Resilience:</span> Fault isolation prevents total system failure.</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Diagram Section -->
+<section class="mb-12">
+<h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#008A3F]" data-icon="account_tree">account_tree</span>
+                Architectural Flowchart
+            </h3>
+<div class="relative w-full aspect-video rounded-3xl overflow-hidden border border-slate-800 group">
+<img alt="Architecture Diagram" class="w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 transition-all duration-700" data-alt="abstract technological diagram with glowing neon blue and green nodes connected by data lines in a dark digital space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSS7yVTLw6En4LZD6s1lmPmnHW4t02Z0sG9xFRE5j0GFy0SEZS0jzOMOu-TuDM1hTziIPKwqpSF8s6A7HCdIl2aYFeTRNIg3_5fcg0tFGOpeRH8-icFbqIv8ar0Qs_bh0irD_H1RbYBXZyK7KG9fjMG5wZyH8uqqTsN-711uTDPcMl4z7RbrxwqroSpu1pjh1S8D87acwk6TQXsD4dzwahTruVEl3txp-lQEB6yEi0xBOzi2P6PWOL60zqIpCS0lFXKDKr9qh5okg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-navy via-transparent to-transparent"></div>
+<div class="absolute bottom-8 left-8 right-8">
+<div class="bg-navy/80 backdrop-blur-md p-4 rounded-xl border border-slate-700">
+<p class="text-sm text-slate-300 italic text-center">Fig 1.1: Visual representation of API Gateway routing traffic to decentralized service clusters and dedicated databases.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Conclusion -->
+<section class="glass-card p-10 rounded-3xl border-l-4 border-l-[#008A3F]">
+<h3 class="text-2xl font-bold text-white mb-4">Summary Conclusion</h3>
+<p class="text-slate-400 leading-relaxed italic">
+                While microservices introduce <span class="text-highlight">operational complexity</span> and require robust <span class="text-highlight">monitoring</span>, they remain the gold standard for modern, large-scale cloud applications where velocity and reliability are paramount. Transitioning requires a shift in both <span class="text-highlight">culture</span> and technology.
+            </p>
+</section>
+<!-- Action Bar -->
+<div class="mt-12 flex flex-wrap gap-4 justify-center">
+<button class="bg-[#008A3F] text-white px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+                Save as PDF
+            </button>
+<button class="border border-slate-700 text-slate-300 px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+                Share Result
+            </button>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] rounded-t-2xl border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+</div>
+</nav>
+</body></html>

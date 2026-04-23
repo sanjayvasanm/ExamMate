@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Upload</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config={theme:{extend:{colors:{"navy-deep":"#0D0C22","emerald-brand":"#008A3F"},fontFamily:{body:["Public Sans","sans-serif"]}}}}</script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .drop-zone.drag-over { border-color:#008A3F !important; background:rgba(0,138,63,0.05); }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s; white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .spinner { display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  input[type=file] { display:none; }
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
+
+<!-- Header -->
+<header class="bg-[#0D0C22] flex justify-between items-center px-6 py-4 w-full sticky top-0 z-50 border-b border-slate-800 shadow-lg shadow-black/20">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#008A3F]">auto_awesome</span>
+    <span class="text-xl font-bold text-white tracking-tight">Exam Mate</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex items-center gap-6 mr-6">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">Home</button>
+      <span class="text-[#008A3F] font-semibold px-3 py-1">Upload</span>
+      <button onclick="navigate('history')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">History</button>
+      <button onclick="navigate('ask')" class="text-slate-400 hover:text-white px-3 py-1 rounded-lg transition-colors">Ask AI</button>
+    </div>
+    <div class="w-10 h-10 rounded-full bg-[#008A3F]/20 border border-[#008A3F]/30 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
+      <span id="avatarInit" class="text-[#008A3F] font-bold text-lg"></span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 py-12 pb-32">
+  <div class="mb-10">
+    <h1 class="text-3xl font-extrabold text-[#0D0C22] tracking-tight mb-2">Upload Materials</h1>
+    <p class="text-slate-500 max-w-lg">Transform your lecture notes, PDFs, and presentations into interactive exam prep materials instantly.</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Upload Area -->
+    <div class="lg:col-span-8 space-y-6">
+      <!-- Drop Zone -->
+      <div class="relative group cursor-pointer drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="absolute -inset-1 bg-gradient-to-r from-[#008A3F] to-emerald-400 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-500"></div>
+        <div class="relative bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center text-center transition-all hover:border-[#008A3F]/50">
+          <div class="w-20 h-20 bg-emerald-50 text-[#008A3F] rounded-full flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-4xl">cloud_upload</span>
+          </div>
+          <h2 class="text-xl font-bold text-[#0D0C22] mb-2">Drag and drop files here</h2>
+          <p class="text-slate-400 mb-8">Support for PDF, PPT, PPTX, DOCX up to 50MB</p>
+          <button class="bg-[#0D0C22] text-white px-8 py-3 rounded-xl font-bold shadow-xl hover:scale-105 active:scale-95 transition-all" type="button">Browse Files</button>
+          <input type="file" id="fileInput" accept=".pdf,.pptx,.ppt,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFileSelect(this.files[0])"/>
+        </div>
+      </div>
+
+      <!-- Upload List -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+        <h3 class="font-bold text-[#0D0C22] mb-6 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#008A3F]">folder_open</span> Your Documents
+        </h3>
+        <div id="docList" class="space-y-3">
+          <div class="text-center py-6 text-slate-400 text-sm">Loading your documents...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="lg:col-span-4 space-y-6">
+      <!-- Storage Card -->
+      <div class="bg-[#0D0C22] rounded-3xl p-6 text-white overflow-hidden relative">
+        <div class="relative z-10">
+          <h3 class="text-[#008A3F] font-bold uppercase tracking-widest text-[10px] mb-4">Storage Usage</h3>
+          <div class="flex items-end gap-2 mb-2">
+            <span class="text-4xl font-black" id="docCount">0</span>
+            <span class="text-slate-400 text-sm mb-1">documents</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 mb-6">
+            <div class="bg-[#008A3F] h-full rounded-full transition-all" id="storageBar" style="width:0%"></div>
+          </div>
+          <p class="text-slate-400 text-xs leading-relaxed">Upload PDFs & docs to build your knowledge base.</p>
+        </div>
+        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-[#008A3F]/10 rounded-full blur-3xl"></div>
+      </div>
+
+      <!-- Tips -->
+      <div class="bg-emerald-50 border border-emerald-100 rounded-3xl p-6">
+        <h3 class="font-bold text-[#0D0C22] mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#008A3F]">lightbulb</span> Pro Tips
+        </h3>
+        <ul class="space-y-4">
+          <li class="flex gap-3"><div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5"></div><p class="text-xs text-slate-600">PDFs with text layers work best for AI recognition.</p></li>
+          <li class="flex gap-3"><div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5"></div><p class="text-xs text-slate-600">After uploading, ask questions using the AI tutor.</p></li>
+          <li class="flex gap-3"><div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5"></div><p class="text-xs text-slate-600">Name your files clearly for easy reference later.</p></li>
+        </ul>
+      </div>
+
+      <!-- Upload progress panel (hidden) -->
+      <div id="uploadProgressCard" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hidden">
+        <h3 class="font-bold text-[#0D0C22] mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#008A3F]">pending</span> Uploading
+        </h3>
+        <div id="uploadFileName" class="text-sm font-bold text-[#0D0C22] truncate mb-2"></div>
+        <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+          <div class="bg-[#008A3F] h-full rounded-full transition-all" id="uploadBar" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-[#008A3F] mt-2 font-bold" id="uploadStatus">Processing...</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe md:hidden bg-white border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] rounded-t-2xl">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">home</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-[#008A3F] bg-green-50 rounded-xl px-3 py-1">
+    <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">cloud_upload</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">history</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
+    <span class="material-symbols-outlined">person</span>
+    <span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+  </div>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+if (!token) window.location.href = '../login_exam_mate/code.html';
+
+document.getElementById('avatarInit').textContent = (user.name||'U').charAt(0).toUpperCase();
+
+// Drag-drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleFileSelect(f);});
+
+async function handleFileSelect(file) {
+  if (!file) return;
+  const card = document.getElementById('uploadProgressCard');
+  card.classList.remove('hidden');
+  document.getElementById('uploadFileName').textContent = file.name;
+  document.getElementById('uploadStatus').textContent = 'Uploading...';
+  document.getElementById('uploadBar').style.width='20%';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    document.getElementById('uploadBar').style.width='60%';
+    const res = await apiFetch(API + '/upload', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: form,
+    });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    document.getElementById('uploadBar').style.width='100%';
+    document.getElementById('uploadStatus').textContent = 'Done! ' + data.chunks_processed + ' chunks indexed.';
+    showToast(file.name + ' uploaded successfully!', 'success');
+    sessionStorage.setItem('last_doc_id', data.document_id);
+    setTimeout(loadDocs, 800);
+  } catch(e) {
+    document.getElementById('uploadStatus').textContent = 'Failed: ' + e.message;
+    showToast(e.message, 'error');
+  }
+}
+
+async function loadDocs() {
+  try {
+    const res = await apiFetch(API + '/documents', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to load documents');
+    const list = document.getElementById('docList');
+    const docs = data.documents || [];
+    document.getElementById('docCount').textContent = docs.length;
+    document.getElementById('storageBar').style.width = Math.min(docs.length * 10, 100) + '%';
+
+    if (docs.length === 0) {
+      list.innerHTML = '<div class="text-center py-6 text-slate-400 text-sm">No documents yet. Upload your first one!</div>';
+      return;
+    }
+
+    const icons = {PDF:'picture_as_pdf text-red-500 bg-red-50', DOCX:'description text-blue-500 bg-blue-50', PPTX:'slideshow text-orange-500 bg-orange-50', PPT:'slideshow text-orange-500 bg-orange-50', TXT:'text_snippet text-slate-500 bg-slate-100', PNG:'image text-purple-500 bg-purple-50', JPG:'image text-purple-500 bg-purple-50'};
+    list.innerHTML = docs.map(d => {
+      const ic = icons[d.file_type] || 'attach_file text-slate-500 bg-slate-100';
+      const [iconName, ...icClasses] = ic.split(' ');
+      const date = new Date(d.uploaded_at).toLocaleDateString();
+      const status = d.status === 'processed' ? `<span class="text-[10px] text-[#008A3F] font-bold">${d.chunks_processed} chunks</span>` : `<span class="text-[10px] text-slate-400">Uploaded</span>`;
+      return `
+        <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+          <div class="w-12 h-12 rounded-xl ${icClasses.join(' ')} flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-2xl">${iconName}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="font-bold text-sm text-[#0D0C22] truncate">${d.filename}</h4>
+            <div class="flex gap-3 text-[10px] text-slate-400 uppercase tracking-wide mt-0.5">
+              <span>${d.file_type} • ${d.file_size_mb}MB</span>
+              <span>${date}</span>
+              ${status}
+            </div>
+          </div>
+          <button onclick="askAboutDoc('${d.doc_id}','${d.filename}')" class="shrink-0 p-2 rounded-lg bg-emerald-50 text-[#008A3F] hover:bg-emerald-100 transition-colors" title="Ask about this doc">
+            <span class="material-symbols-outlined text-sm">psychology</span>
+          </button>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    showToast('Could not load documents', 'error');
+    document.getElementById('docList').innerHTML = '<div class="text-center py-4 text-slate-400 text-sm">Could not load documents.</div>';
+  }
+}
+
+function askAboutDoc(docId, filename) {
+  sessionStorage.setItem('ask_doc_id', docId);
+  sessionStorage.setItem('ask_doc_name', filename);
+  navigate('ask');
+}
+
+loadDocs();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+.env
+.env.*
+
+# Local tooling
+.agent/
+.kluster/
+
+# Uploaded documents
+backend/uploads/
+
+# Flutter/Dart
+.dart_tool/
+build/
+
+# Android/Gradle
+**/android/.gradle/
+**/android/local.properties
+**/android/app/build/
+
+# iOS
+**/ios/Pods/
+**/ios/Runner.xcworkspace/
+**/ios/Flutter/ephemeral/
+
+# macOS
+**/macos/Pods/
+
+# Windows
+**/windows/flutter/ephemeral/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

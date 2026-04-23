@@ -1,0 +1,35 @@
+name: exam_mate
+description: AI-powered exam preparation app — Exam Mate
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_inappwebview: ^6.0.0
+  file_picker: ^11.0.2
+  http: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # Root assets dir (for any shared files)
+    - assets/
+    # All 8 screen HTML pages
+    - assets/login_exam_mate/
+    - assets/signup_exam_mate/
+    - assets/dashboard_exam_mate/
+    - assets/upload_document_exam_mate/
+    - assets/ask_question_exam_mate/
+    - assets/answer_exam_mate/
+    - assets/history_exam_mate/
+    - assets/profile_exam_mate/

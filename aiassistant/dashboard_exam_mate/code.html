@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - AI Study Assistant</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            900: "#0D0C22",
+                            800: "#1A1935",
+                            700: "#2A294A"
+                        },
+                        emerald: {
+                            DEFAULT: "#008A3F",
+                            500: "#008A3F",
+                            600: "#007033",
+                            400: "#10B981"
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans", "sans-serif"],
+                        "body": ["Public Sans", "sans-serif"],
+                        "label": ["Public Sans", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(13, 12, 34, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-[#0D0C22] dark:bg-slate-950 flex justify-between items-center px-6 py-4 w-full border-b border-slate-800 shadow-lg shadow-black/20">
+<div class="flex items-center gap-3">
+<div class="text-[#008A3F] dark:text-green-400">
+<span class="material-symbols-outlined text-2xl" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<span class="text-xl font-bold text-white dark:text-slate-100 font-sans tracking-tight">Exam Mate</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex gap-6 mr-6">
+<span class="text-[#008A3F] font-semibold">Home</span>
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1 rounded">Upload</span>
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1 rounded">History</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a friendly professional man with a clean haircut against a soft blurred background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9DFXxFGCt-g4XLSs-V8SKUb6Xiubd0K69a2jnZBgf7zTybdtQtefWw7_Bh5TLB5t8i9tpndCKpPiYdYJU17_OtT3BWmvaWIm2bzQgJoCng2CuuqrWeDU8GKyJJGY7l7ofK1Q8crKZDNKGeDc_p-h5TcZ0x1UWnVyM0CDNt7wlZaIa3a9Q6DRp2BwCoJK1G03l7tx-eRDs9OzX-z3Ud3GbMTDjjpsvVRpwS-TWs3tVUy93WcSJ6hJNbblPmquqJ3wSl5XNWZy3tFk"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-4 md:px-8 max-w-7xl mx-auto">
+<!-- Hero Section -->
+<section class="mb-12 relative overflow-hidden rounded-3xl bg-navy-900 p-8 md:p-12 text-white shadow-2xl">
+<div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none">
+<div class="absolute inset-0 bg-gradient-to-l from-emerald-500/40 to-transparent"></div>
+</div>
+<div class="relative z-10 max-w-2xl">
+<h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Master your exams with AI precision.</h1>
+<p class="text-slate-300 text-lg mb-8 leading-relaxed">Upload your study materials and let our AI generate summaries, flashcards, and practice quizzes in seconds.</p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/40">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+                        Get Started
+                    </button>
+<button class="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-xl transition-all backdrop-blur-sm border border-white/10">
+                        Watch Demo
+                    </button>
+</div>
+</div>
+<!-- Floating Decorative Element -->
+<div class="absolute -bottom-10 -right-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl"></div>
+</section>
+<!-- Quick Actions Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<!-- Upload Card -->
+<div class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl" data-icon="cloud_upload" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+</div>
+<h3 class="text-xl font-bold mb-2">Upload Document</h3>
+<p class="text-slate-500 mb-6">Convert PDFs, DOCX, or images into interactive study guides.</p>
+<button class="text-emerald-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                    Upload Now <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Ask Question Card -->
+<div class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl" data-icon="chat_bubble">chat_bubble</span>
+</div>
+<div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<h3 class="text-xl font-bold mb-2">Ask Question</h3>
+<p class="text-slate-500 mb-6">Stuck on a concept? Ask our AI tutor for instant clarification.</p>
+<button class="text-blue-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                    Start Chat <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- View History Card -->
+<div class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl" data-icon="history">history</span>
+</div>
+<div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl" data-icon="history" style="font-variation-settings: 'FILL' 1;">history</span>
+</div>
+<h3 class="text-xl font-bold mb-2">View History</h3>
+<p class="text-slate-500 mb-6">Access all your previous uploads and generated insights.</p>
+<button class="text-purple-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                    Open Library <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Recent Activity & Stats (Bento Layout) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Recent Activity Table -->
+<div class="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+<div class="flex justify-between items-center mb-8">
+<h2 class="text-2xl font-bold">Recent Activity</h2>
+<button class="text-sm font-semibold text-slate-400 hover:text-emerald-600">View All</button>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div>
+<h4 class="font-bold">Calculus_Final_Notes.pdf</h4>
+<p class="text-xs text-slate-400">Uploaded 2 hours ago • 24 Flashcards</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 p-2 rounded-lg text-slate-600 hover:text-emerald-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+</div>
+<div>
+<h4 class="font-bold">Organic_Chemistry_Summary</h4>
+<p class="text-xs text-slate-400">Generated 5 hours ago • Summary</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 p-2 rounded-lg text-slate-600 hover:text-emerald-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="quiz">quiz</span>
+</div>
+<div>
+<h4 class="font-bold">Economics_Quiz_101</h4>
+<p class="text-xs text-slate-400">Completed yesterday • Score: 92%</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 p-2 rounded-lg text-slate-600 hover:text-emerald-600 transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Stats Sidebar -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Learning Progress -->
+<div class="bg-navy-900 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-lg font-bold mb-6">Study Stats</h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="text-slate-400">Total Hours</span>
+<span class="font-bold">42.5h</span>
+</div>
+<div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-3/4 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="text-slate-400">Accuracy</span>
+<span class="font-bold">88%</span>
+</div>
+<div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-400 w-[88%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="absolute bottom-0 right-0 p-4">
+<span class="material-symbols-outlined text-emerald-500/20 text-7xl" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<!-- AI Tips Card -->
+<div class="bg-emerald-50 p-8 rounded-3xl border border-emerald-100">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-emerald-600" data-icon="tips_and_updates" style="font-variation-settings: 'FILL' 1;">tips_and_updates</span>
+<h3 class="font-bold text-emerald-900">AI Study Tip</h3>
+</div>
+<p class="text-emerald-800 text-sm leading-relaxed italic">
+                        "Your performance in Calculus peaks in the morning. Try scheduling your next quiz before 11 AM for optimal focus."
+                    </p>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:hidden rounded-t-2xl">
+<div class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+</div>
+</nav>
+<!-- FAB (Suppressed on Dashboard as primary actions are in Quick Cards, but included here for "Ask Question" shortcut if needed as secondary) -->
+<button class="fixed bottom-24 right-6 md:bottom-12 md:right-12 w-16 h-16 bg-emerald-500 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40">
+<span class="material-symbols-outlined text-3xl" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</button>
+</body></html>

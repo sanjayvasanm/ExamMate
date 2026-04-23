@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile - Exam Mate</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{body:["Public Sans","sans-serif"]}}}}</script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .glass-card { background:rgba(255,255,255,0.8); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.3); }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen pb-24">
+
+<!-- Header -->
+<header class="bg-[#0D0C22] text-white shadow-lg shadow-black/20 sticky top-0 z-50">
+  <div class="flex justify-between items-center px-6 py-4 w-full">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-[#008A3F] text-2xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+      <h1 class="text-xl font-bold text-white tracking-tight">Exam Mate</h1>
+    </div>
+    <nav class="hidden md:flex items-center space-x-8">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors">Home</button>
+      <button onclick="navigate('upload')" class="text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors">Upload</button>
+      <button onclick="navigate('history')" class="text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors">History</button>
+      <span class="text-[#008A3F] font-semibold px-3 py-2">Profile</span>
+    </nav>
+    <div class="flex items-center gap-4">
+      <div class="h-10 w-10 rounded-full border-2 border-[#008A3F] overflow-hidden flex items-center justify-center bg-[#008A3F]/10">
+        <span id="headerAvatar" class="text-[#008A3F] font-bold text-lg"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 py-8">
+
+  <!-- Profile Hero -->
+  <section class="relative mb-12 overflow-hidden rounded-3xl bg-[#0D0C22] p-8 md:p-12 text-white">
+    <div class="absolute top-0 right-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-[#008A3F]/20 blur-3xl"></div>
+    <div class="absolute bottom-0 left-0 -ml-20 -mb-20 h-64 w-64 rounded-full bg-blue-600/10 blur-3xl"></div>
+    <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+      <!-- Avatar -->
+      <div class="relative group">
+        <div class="h-32 w-32 rounded-3xl border-4 border-[#008A3F] overflow-hidden flex items-center justify-center bg-[#008A3F]/20 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+          <span id="bigAvatar" class="text-5xl font-black text-[#008A3F]"></span>
+        </div>
+      </div>
+      <!-- Info -->
+      <div class="text-center md:text-left flex-1">
+        <h2 id="profileName" class="text-3xl font-extrabold tracking-tight mb-1">Loading...</h2>
+        <p id="profileEmail" class="text-slate-400 font-medium mb-6"></p>
+        <!-- Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Documents</p>
+            <p class="text-xl font-bold text-[#008A3F]" id="statDocs">—</p>
+          </div>
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Study Streak</p>
+            <p class="text-xl font-bold text-orange-400" id="statStreak">—</p>
+          </div>
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Questions</p>
+            <p class="text-xl font-bold text-blue-400" id="statQuestions">—</p>
+          </div>
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Member Since</p>
+            <p class="text-base font-bold text-purple-400" id="statSince">—</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Edit Name Card -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <!-- Edit Profile -->
+    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+      <div>
+        <div class="h-12 w-12 bg-[#008A3F]/10 rounded-2xl flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-[#008A3F]">edit</span>
+        </div>
+        <h3 class="font-bold text-lg mb-1">Edit Profile</h3>
+        <p class="text-sm text-slate-500 mb-4">Update your display name.</p>
+        <input id="nameInput" type="text" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#008A3F] mb-4" placeholder="Your full name"/>
+      </div>
+      <button onclick="updateProfile()" class="w-full bg-[#008A3F] text-white font-bold py-2.5 rounded-xl hover:bg-[#007033] transition-colors text-sm">Save Changes</button>
+    </div>
+
+    <!-- Language Card -->
+    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+      <div>
+        <div class="h-12 w-12 bg-[#008A3F]/10 rounded-2xl flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-[#008A3F]">language</span>
+        </div>
+        <h3 class="font-bold text-lg mb-1">Language</h3>
+        <p class="text-sm text-slate-500 mb-6">Choose your preferred language.</p>
+      </div>
+      <button class="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-[#008A3F] transition-all">
+        <span class="font-semibold text-sm">English (US)</span>
+        <span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
+      </button>
+    </div>
+
+    <!-- Notifications Card -->
+    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+      <div>
+        <div class="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-blue-600">notifications</span>
+        </div>
+        <h3 class="font-bold text-lg mb-1">Study Alerts</h3>
+        <p class="text-sm text-slate-500 mb-6">Get reminded about upcoming tests.</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input class="sr-only peer" type="checkbox" checked/>
+        <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#008A3F]"></div>
+        <span class="ms-3 text-sm font-medium text-slate-700">Enabled</span>
+      </label>
+    </div>
+
+    <!-- Plan Card (spans 2 cols) -->
+    <div class="md:col-span-2 bg-[#008A3F] p-8 rounded-3xl text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-full opacity-10">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl"></div>
+      </div>
+      <div class="relative z-10 text-center md:text-left">
+        <h3 class="text-2xl font-black mb-2 uppercase tracking-tight">Free Plan</h3>
+        <p class="text-white/80 max-w-sm">Upgrade to Pro for unlimited uploads, AI summaries, and priority exam prediction features.</p>
+      </div>
+      <div class="relative z-10">
+        <button class="px-8 py-4 bg-[#0D0C22] text-white font-bold rounded-2xl shadow-xl hover:scale-105 transition-transform">Upgrade to Pro</button>
+      </div>
+    </div>
+
+    <!-- Security Card -->
+    <div class="glass-card p-6 rounded-3xl flex flex-col justify-between border-slate-200">
+      <div>
+        <div class="h-12 w-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-slate-600">lock</span>
+        </div>
+        <h3 class="font-bold text-lg mb-1">Security</h3>
+        <p class="text-sm text-slate-500 mb-6">Manage your password and session.</p>
+      </div>
+      <button class="text-[#008A3F] font-bold text-sm text-left hover:underline">Reset Password</button>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="flex flex-col md:flex-row items-center justify-between gap-6 p-8 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50">
+    <div>
+      <h4 class="font-bold text-lg text-[#0D0C22]">Account Actions</h4>
+      <p class="text-sm text-slate-500">Sign out of your account or delete your data permanently.</p>
+    </div>
+    <div class="flex gap-4 w-full md:w-auto">
+      <button onclick="handleLogout()" class="flex-1 md:flex-none px-6 py-3 border border-slate-300 rounded-xl font-bold text-[#0D0C22] hover:bg-white transition-colors flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm">logout</span> Logout
+      </button>
+      <button onclick="confirmDelete()" class="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm">delete_forever</span> Delete Account
+      </button>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:hidden">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined text-2xl">home</span><span class="text-[11px] font-medium uppercase tracking-wider mt-1">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined text-2xl">cloud_upload</span><span class="text-[11px] font-medium uppercase tracking-wider mt-1">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined text-2xl">history</span><span class="text-[11px] font-medium uppercase tracking-wider mt-1">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-[#008A3F] bg-green-50 rounded-xl px-3 py-1 cursor-pointer">
+    <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL' 1;">person</span><span class="text-[11px] font-medium uppercase tracking-wider mt-1">Profile</span>
+  </div>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+if (!token) window.location.href = '../login_exam_mate/code.html';
+
+const initLetter = (user.name||'U').charAt(0).toUpperCase();
+document.getElementById('headerAvatar').textContent = initLetter;
+document.getElementById('bigAvatar').textContent    = initLetter;
+
+async function loadProfile() {
+  try {
+    const res = await apiFetch(API + '/profile', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res) return;
+    const p = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(p.error || 'Failed to load profile');
+
+    document.getElementById('profileName').textContent  = p.name || user.name || '—';
+    document.getElementById('profileEmail').textContent = p.email;
+    document.getElementById('bigAvatar').textContent    = (p.name||'U').charAt(0).toUpperCase();
+    document.getElementById('headerAvatar').textContent = (p.name||'U').charAt(0).toUpperCase();
+    document.getElementById('nameInput').value          = p.name || '';
+    document.getElementById('statDocs').textContent     = p.documents_uploaded;
+    document.getElementById('statStreak').textContent   = p.study_streak + ' days';
+    document.getElementById('statQuestions').textContent= p.total_questions;
+
+    const since = new Date(p.created_at);
+    document.getElementById('statSince').textContent = since.toLocaleDateString('en-US', { month:'short', year:'numeric' });
+
+    // Update local user
+    localStorage.setItem('em_user', JSON.stringify({ id:p.id, name:p.name, email:p.email }));
+  } catch(e) {
+    showToast('Could not load profile', 'error');
+    document.getElementById('profileName').textContent  = user.name || '—';
+    document.getElementById('profileEmail').textContent = user.email || '';
+    document.getElementById('bigAvatar').textContent    = (user.name||'U').charAt(0).toUpperCase();
+    document.getElementById('headerAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
+  }
+}
+
+async function updateProfile() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) { showToast('Name cannot be empty', 'error'); return; }
+
+  try {
+    const res = await apiFetch(API + '/profile/update', {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', Authorization:'Bearer '+token },
+      body: JSON.stringify({ name }),
+    });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error);
+
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('bigAvatar').textContent   = name.charAt(0).toUpperCase();
+    document.getElementById('headerAvatar').textContent= name.charAt(0).toUpperCase();
+    const u = JSON.parse(localStorage.getItem('em_user') || '{}');
+    u.name = name;
+    localStorage.setItem('em_user', JSON.stringify(u));
+    showToast('Profile updated!', 'success');
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function handleLogout() {
+  if (!confirm('Are you sure you want to logout?')) return;
+  localStorage.removeItem('em_token');
+  localStorage.removeItem('em_user');
+  localStorage.removeItem('em_last_answer');
+  sessionStorage.clear();
+  window.location.href = '../login_exam_mate/code.html';
+}
+
+function confirmDelete() {
+  if (confirm('WARNING: This will permanently delete your account and all data. This cannot be undone!\n\nAre you absolutely sure?')) {
+    handleLogout(); // In a real app, call DELETE /api/auth/delete
+  }
+}
+
+loadProfile();
+</script>
+</body>
+</html>

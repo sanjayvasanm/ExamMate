@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - History</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>tailwind.config={theme:{extend:{colors:{navy:{900:'#0D0C22',800:'#161531',700:'#1F1E40'},emerald:{500:'#008A3F',400:'#10B981'}},fontFamily:{body:["Public Sans","sans-serif"]}}}}</script>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Public Sans',sans-serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .glass-card { background:rgba(255,255,255,0.03); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); }
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.success { background:#008A3F;color:#fff; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .skeleton { background:linear-gradient(90deg,#161531 25%,#1F1E40 50%,#161531 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:12px; }
+  @keyframes shimmer { 0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* Modal */
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px; }
+  .modal-box { background:#161531;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:32px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto; }
+  /* Mermaid mini */
+  .mermaid-mini { background:rgba(0,138,63,0.04);border:1px solid rgba(0,138,63,0.2);border-radius:14px;padding:16px;overflow:auto;min-height:120px; }
+  .mermaid-mini svg { max-width:100%;height:auto;display:block;margin:auto; }
+  .diagram-spinner-sm { width:28px;height:28px;border:2px solid rgba(0,138,63,0.2);border-top-color:#008A3F;border-radius:50%;animation:spin .8s linear infinite;margin:auto; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+</style>
+</head>
+<body class="bg-slate-50 font-body text-slate-900 min-h-screen" style="background:#0D0C22;">
+
+<!-- Header -->
+<header class="bg-[#0D0C22] flex justify-between items-center px-6 py-4 w-full sticky top-0 z-50 border-b border-slate-800 shadow-lg shadow-black/20">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#008A3F] text-2xl">auto_awesome</span>
+    <h1 class="text-xl font-bold text-white tracking-tight">Exam Mate</h1>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex gap-6 mr-4">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">Home</button>
+      <button onclick="navigate('upload')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">Upload</button>
+      <span class="text-[#008A3F] font-semibold px-3 py-1">History</span>
+      <button onclick="navigate('ask')" class="text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">Ask AI</button>
+    </div>
+    <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-700 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
+      <span id="avatarInit" class="text-[#008A3F] font-bold"></span>
+    </div>
+  </div>
+</header>
+
+<main class="flex-1 pb-24 bg-[#0D0C22] relative overflow-hidden min-h-screen">
+  <!-- Background -->
+  <div class="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+    <div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-[#008A3F] rounded-full blur-[120px]"></div>
+    <div class="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-slate-800 rounded-full blur-[120px]"></div>
+  </div>
+
+  <div class="relative z-10 max-w-2xl mx-auto px-6 pt-8">
+    <!-- Search & Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-extrabold text-white mb-2">Question History</h2>
+      <p class="text-slate-400 text-sm mb-6">Review your past queries and AI-generated solutions.</p>
+      <div class="flex items-center gap-3 bg-slate-800/50 p-1 rounded-xl border border-white/5">
+        <div class="flex-1 flex items-center gap-2 px-3">
+          <span class="material-symbols-outlined text-slate-500 text-xl">search</span>
+          <input id="searchInput" class="bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 w-full py-2 text-sm focus:outline-none" placeholder="Search history..." type="text" oninput="debounceSearch()"/>
+        </div>
+        <button onclick="clearSearch()" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- History List -->
+    <div id="historyList" class="space-y-4">
+      <div class="skeleton h-24 w-full"></div>
+      <div class="skeleton h-24 w-full"></div>
+      <div class="skeleton h-24 w-full"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white dark:bg-[#0D0C22] rounded-t-2xl shadow-[0_-4px_10px_rgba(0,0,0,0.05)] border-t border-slate-100 dark:border-slate-800">
+  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">home</span><span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+  </div>
+  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">cloud_upload</span><span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+  </div>
+  <div onclick="navigate('history')" class="flex flex-col items-center text-[#008A3F] bg-green-900/20 rounded-xl px-3 py-1 cursor-pointer">
+    <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">history</span><span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+  </div>
+  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all cursor-pointer">
+    <span class="material-symbols-outlined">person</span><span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+  </div>
+</nav>
+
+<!-- Answer Detail Modal -->
+<div id="detailModal" class="modal-overlay hidden" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <span class="text-[10px] font-bold text-[#008A3F] uppercase tracking-widest" id="modalSubject"></span>
+        <h3 class="text-xl font-bold text-white mt-1" id="modalQuestion"></h3>
+      </div>
+      <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="text-slate-500 hover:text-white ml-4">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="modalBody" class="text-slate-300 space-y-5"></div>
+    <div class="flex gap-3 mt-8 flex-wrap">
+      <button onclick="viewFullAnswer()" class="flex-1 bg-[#008A3F] text-white font-bold py-3 rounded-xl hover:bg-[#007033] transition-colors flex items-center justify-center gap-2 min-w-[140px]">
+        <span class="material-symbols-outlined text-sm">open_in_new</span> Full Answer
+      </button>
+      <button onclick="askSimilar()" class="flex-1 border border-slate-700 text-slate-300 font-bold py-3 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 min-w-[120px]">
+        <span class="material-symbols-outlined text-sm">refresh</span> Ask Again
+      </button>
+      <button onclick="deleteQuestion()" class="px-4 py-3 bg-red-900/30 text-red-400 font-bold rounded-xl hover:bg-red-900/50 transition-colors" id="deleteBtn">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: false, theme: 'dark',
+  themeVariables: {
+    primaryColor:'#008A3F', primaryTextColor:'#e2e8f0',
+    lineColor:'#475569', secondaryColor:'#1e293b',
+    background:'#161531', mainBkg:'#1a1935',
+    nodeBorder:'#008A3F', fontFamily:'Public Sans, sans-serif',
+  },
+  securityLevel: 'strict', logLevel: 'error',
+});
+
+let _modalFullData = null; // stores the full API response for the currently open history item
+
+async function renderModalMermaid(code, diagramType) {
+  const container = document.getElementById('modalMermaidContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="diagram-spinner-sm"></div>';
+  try {
+    const rid = 'mmd_hist_' + Date.now();
+    const { svg } = await mermaid.render(rid, code);
+    container.innerHTML = svg;
+  } catch (err) {
+    // Auto-fix via backend
+    try {
+      const res = await apiFetch(API + '/fix-diagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ code, error: String(err.message), diagram_type: diagramType }),
+      });
+      if (!res) throw new Error('no response');
+      const fix = await res.json();
+      if (!res.ok || !fix.code) throw new Error('fix failed');
+      const rid2 = 'mmd_hist_fix_' + Date.now();
+      const { svg } = await mermaid.render(rid2, fix.code);
+      container.innerHTML = svg;
+    } catch (e2) {
+      container.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Diagram could not be rendered.</p>';
+    }
+  }
+}
+
+function viewFullAnswer() {
+  if (!_modalFullData) return;
+  // Store only in sessionStorage (cleared on tab close) — avoid persisting
+  // full answer payloads in localStorage to reduce data exposure surface.
+  sessionStorage.setItem('ai_answer', JSON.stringify(_modalFullData));
+  document.getElementById('detailModal').classList.add('hidden');
+  navigate('answer');
+}
+</script>
+<script>
+const token = localStorage.getItem('em_token');
+const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
+if (!token) window.location.href = '../login_exam_mate/code.html';
+
+document.getElementById('avatarInit').textContent = (user.name||'U').charAt(0).toUpperCase();
+
+const subjectIcons = { Physics:'science', Chemistry:'biotech', Mathematics:'function', History:'history_edu', 'Computer Science':'computer', General:'psychology' };
+let currentQuestionId = null;
+_modalFullData = null;
+let currentQuestion = '';
+let debounceTimer = null;
+
+function debounceSearch() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(loadHistory, 400);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  loadHistory();
+}
+
+async function loadHistory() {
+  const q = document.getElementById('searchInput').value.trim();
+  const url = API + '/history' + (q ? '?q=' + encodeURIComponent(q) : '');
+
+  try {
+    const res = await apiFetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to load history');
+    renderHistory(data.history || []);
+  } catch(e) {
+    document.getElementById('historyList').innerHTML = '<div class="text-center py-8 text-slate-500">Could not load history. Is the backend running?</div>';
+  }
+}
+
+function renderHistory(items) {
+  const list = document.getElementById('historyList');
+  if (!items.length) {
+    list.innerHTML = `
+      <div class="text-center py-16">
+        <span class="material-symbols-outlined text-5xl text-slate-700 block mb-3">history_toggle_off</span>
+        <p class="text-slate-500 font-semibold">No questions yet</p>
+        <p class="text-slate-600 text-sm mt-1">Ask your first question to start building your history.</p>
+        <button onclick="navigate('ask')" class="mt-6 px-6 py-3 bg-[#008A3F] text-white font-bold rounded-xl hover:bg-[#007033] transition-colors">Ask a Question</button>
+      </div>`;
+    return;
+  }
+
+  // Group by date label
+  const groups = {};
+  items.forEach(item => {
+    const lbl = item.time_label.includes('ago') || item.time_label === 'Just now' ? 'Today' : item.time_label === 'Yesterday' ? 'Yesterday' : item.time_label;
+    if (!groups[lbl]) groups[lbl] = [];
+    groups[lbl].push(item);
+  });
+
+  let html = '';
+  Object.entries(groups).forEach(([label, grpItems]) => {
+    html += `
+      <div class="space-y-3 mb-6">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="h-[1px] flex-1 bg-slate-800"></span>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">${label}</span>
+          <span class="h-[1px] flex-1 bg-slate-800"></span>
+        </div>`;
+    grpItems.forEach(item => {
+      const icon = subjectIcons[item.subject] || 'psychology';
+      const modeColor = item.mode === 'exam' ? 'text-orange-400' : item.mode === 'beginner' ? 'text-blue-400' : 'text-[#008A3F]';
+      html += `
+        <div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]" onclick="openDetail('${item.id}','${encodeURIComponent(item.question)}','${item.subject}')">
+          <div class="flex justify-between items-start mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-[#008A3F]/10 flex items-center justify-center">
+                <span class="material-symbols-outlined text-[#008A3F] text-lg">${icon}</span>
+              </div>
+              <span class="text-[10px] font-bold text-[#10B981] uppercase tracking-wider">${item.subject}</span>
+            </div>
+            <span class="text-xs text-slate-500">${item.time_label}</span>
+          </div>
+          <h3 class="text-white font-semibold text-base mb-2 group-hover:text-[#008A3F] transition-colors line-clamp-2">${item.question}</h3>
+          <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+            <div class="flex gap-2">
+              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium text-slate-400 border border-white/5 capitalize">${item.mode}</span>
+              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium ${modeColor} border border-white/5">${item.marks} Marks</span>
+            </div>
+            <span class="material-symbols-outlined text-slate-500 group-hover:text-[#008A3F] group-hover:translate-x-1 transition-all">arrow_forward</span>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+async function openDetail(id, encodedQuestion, subject) {
+  currentQuestionId = id;
+  currentQuestion = decodeURIComponent(encodedQuestion);
+  document.getElementById('modalSubject').textContent = subject;
+  document.getElementById('modalQuestion').textContent = currentQuestion;
+  document.getElementById('modalBody').innerHTML = '<div class="text-center py-8"><div class="w-8 h-8 border-2 border-[#008A3F]/30 border-t-[#008A3F] rounded-full animate-spin mx-auto"></div></div>';
+  document.getElementById('detailModal').classList.remove('hidden');
+  document.getElementById('deleteBtn').dataset.id = id;
+
+  try {
+    const res = await apiFetch(API + '/history/' + id, { headers: { Authorization: 'Bearer ' + token } });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Not found');
+
+    _modalFullData = data; // store for viewFullAnswer()
+    const a = data.answer || {};
+    const diagrams = Array.isArray(data.diagrams) ? data.diagrams : [];
+    const mermaidDiagram = diagrams.find(d => d && d.type === 'mermaid');
+
+    document.getElementById('modalBody').innerHTML = `
+      <div class="bg-[#008A3F]/10 border border-[#008A3F]/20 rounded-xl p-4">
+        <p class="text-xs font-bold text-[#008A3F] uppercase tracking-widest mb-2">Definition</p>
+        <p class="text-slate-300">${a.definition || '—'}</p>
+      </div>
+      ${mermaidDiagram ? `
+      <div>
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm text-[#008A3F]" style="font-variation-settings:'FILL' 1;">schema</span>
+          Diagram Preview
+        </p>
+        <div class="mermaid-mini" id="modalMermaidContainer"><div class="diagram-spinner-sm"></div></div>
+      </div>` : ''}
+      <div>
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Explanation</p>
+        <p class="text-slate-400 leading-relaxed text-sm">${(a.explanation || '—').slice(0, 400)}${(a.explanation || '').length > 400 ? '…' : ''}</p>
+      </div>
+      ${(a.points||[]).length ? `
+      <div>
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Key Points</p>
+        <ul class="space-y-2">${(a.points||[]).slice(0,5).map(p=>`<li class="flex gap-2 text-slate-300 text-sm"><span class="material-symbols-outlined text-[#008A3F] text-sm mt-0.5" style="font-variation-settings:'FILL' 1;">check_circle</span>${p}</li>`).join('')}</ul>
+      </div>` : ''}
+      ${a.conclusion ? `<div class="glass-card p-4 rounded-xl border-l-2 border-[#008A3F]"><p class="text-slate-400 italic text-sm">${a.conclusion.slice(0,200)}${a.conclusion.length>200?'…':''}</p></div>` : ''}`;
+
+    // Render Mermaid diagram if present
+    if (mermaidDiagram && mermaidDiagram.code) {
+      await renderModalMermaid(mermaidDiagram.code, mermaidDiagram.diagram_type || 'graph');
+    }
+  } catch(e) {
+    document.getElementById('modalBody').innerHTML = '<p class="text-slate-500 text-sm">' + e.message + '</p>';
+  }
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('detailModal')) {
+    document.getElementById('detailModal').classList.add('hidden');
+  }
+}
+
+function askSimilar() {
+  document.getElementById('detailModal').classList.add('hidden');
+  _modalFullData = null;
+  sessionStorage.setItem('prefill_question', currentQuestion);
+  navigate('ask');
+}
+
+async function deleteQuestion() {
+  if (!currentQuestionId) return;
+  if (!confirm('Delete this question from history?')) return;
+
+  try {
+    const res = await apiFetch(API + '/history/' + currentQuestionId, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res) return;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Question deleted', 'success');
+    document.getElementById('detailModal').classList.add('hidden');
+    loadHistory();
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
+loadHistory();
+</script>
+</body>
+</html>

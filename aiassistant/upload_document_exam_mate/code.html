@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Exam Mate - Upload</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "navy-deep": "#0D0C22",
+                "emerald-brand": "#008A3F"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "fontFamily": {
+                "headline": ["Public Sans"],
+                "body": ["Public Sans"],
+                "label": ["Public Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #F8FAFC;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
+<!-- TopAppBar -->
+<header class="bg-[#0D0C22] dark:bg-slate-950 docked full-width top-0 border-b border-slate-800 shadow-lg shadow-black/20 flex justify-between items-center px-6 py-4 w-full sticky z-50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400" data-icon="auto_awesome">auto_awesome</span>
+<span class="text-xl font-bold text-white dark:text-slate-100 font-sans tracking-tight">Exam Mate</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-6 mr-6">
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded-lg cursor-pointer">Home</span>
+<span class="text-[#008A3F] font-semibold hover:bg-slate-800 transition-colors px-3 py-1 rounded-lg cursor-pointer">Upload</span>
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded-lg cursor-pointer">History</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" data-alt="Professional headshot of a young man with a friendly expression in a modern office setting, soft bokeh background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-Ri7bQ5sdOEJNy7DmV12qD7Vvyu9wO6K0x1d0JACrEzpbQpSzSJyGCXRx-alXa_VYiio0qbEJuqaEVmnZWNW7e9YT6xiCiGOLOldL9FYGuWXO1kSlYzXPcFqDyiYLm98ukypiO41b8nImJdgGjWh0w5ezayxgjJY84bw_pZ55WGtXqIMzozi9xpKSr6VJdlblCdP_8J45Fus_3bKPbdCwVoKgL5pxC-JYKt8TymURZHAa5RvN583cUJe4hTuTXt_txaFZBXbAOzc"/>
+</div>
+</div>
+</header>
+<main class="max-w-5xl mx-auto px-6 py-12 pb-32">
+<!-- Page Title -->
+<div class="mb-10">
+<h1 class="text-3xl font-extrabold text-navy-deep tracking-tight mb-2">Upload Materials</h1>
+<p class="text-slate-500 max-w-lg">Transform your lecture notes, PDFs, and presentations into interactive exam prep materials instantly.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Upload Area (Bento Main Card) -->
+<div class="lg:col-span-8 space-y-6">
+<div class="relative group cursor-pointer">
+<div class="absolute -inset-1 bg-gradient-to-r from-[#008A3F] to-emerald-400 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
+<div class="relative bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center text-center transition-all hover:border-[#008A3F]/50 bg-opacity-80 backdrop-blur-sm">
+<div class="w-20 h-20 bg-emerald-50 text-[#008A3F] rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<h2 class="text-xl font-bold text-navy-deep mb-2">Drag and drop files here</h2>
+<p class="text-slate-400 mb-8">Support for PDF, PPT, and PPTX up to 50MB</p>
+<button class="bg-[#0D0C22] text-white px-8 py-3 rounded-xl font-bold shadow-xl shadow-navy-deep/20 hover:scale-105 active:scale-95 transition-all">
+                            Browse Files
+                        </button>
+</div>
+</div>
+<!-- Recent/In-Progress Uploads -->
+<div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+<h3 class="font-bold text-navy-deep mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-emerald-brand" data-icon="pending">pending</span>
+                        Processing Files
+                    </h3>
+<!-- Progress Item 1 -->
+<div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl mb-4 border border-slate-100">
+<div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-500 shrink-0">
+<span class="material-symbols-outlined text-3xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<h4 class="font-bold text-sm text-navy-deep truncate">Macroeconomics_Final_Review.pdf</h4>
+<span class="text-xs font-bold text-[#008A3F]">85%</span>
+</div>
+<div class="w-full bg-slate-200 rounded-full h-1.5 mb-2 overflow-hidden">
+<div class="bg-[#008A3F] h-full rounded-full" style="width: 85%"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">PDF • 12.4 MB</span>
+<span class="text-[10px] text-[#008A3F] font-bold">Extracting key concepts...</span>
+</div>
+</div>
+</div>
+<!-- Progress Item 2 (Completed Preview) -->
+<div class="flex items-start gap-4 p-4 bg-white rounded-2xl border border-slate-200">
+<div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 shrink-0">
+<span class="material-symbols-outlined text-3xl" data-icon="slideshow">slideshow</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<h4 class="font-bold text-sm text-navy-deep truncate">Global_Trade_Week4.pptx</h4>
+<span class="material-symbols-outlined text-[#008A3F] text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">PPTX • 4.8 MB</span>
+<button class="text-[10px] font-bold text-navy-deep underline uppercase tracking-tighter">View Summary</button>
+</div>
+</div>
+<button class="text-slate-300 hover:text-red-500">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Sidebar Info/Stats -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Usage Card -->
+<div class="bg-navy-deep rounded-3xl p-6 text-white overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="text-emerald-brand font-bold uppercase tracking-widest text-[10px] mb-4">Storage Usage</h3>
+<div class="flex items-end gap-2 mb-2">
+<span class="text-4xl font-black">1.2</span>
+<span class="text-slate-400 text-sm mb-1">GB / 5.0 GB</span>
+</div>
+<div class="w-full bg-slate-800 rounded-full h-2 mb-6">
+<div class="bg-emerald-brand h-full rounded-full" style="width: 24%"></div>
+</div>
+<p class="text-slate-400 text-xs leading-relaxed">Upgrade to Pro for unlimited uploads and 50GB cloud storage.</p>
+<button class="mt-6 w-full py-3 bg-emerald-brand text-white rounded-xl font-bold text-sm hover:brightness-110 transition-all">Upgrade Now</button>
+</div>
+<!-- Abstract Background Pattern -->
+<div class="absolute -bottom-10 -right-10 w-40 h-40 bg-emerald-brand/10 rounded-full blur-3xl"></div>
+</div>
+<!-- Tips/Information -->
+<div class="bg-emerald-50 border border-emerald-100 rounded-3xl p-6">
+<h3 class="font-bold text-navy-deep mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#008A3F]" data-icon="lightbulb">lightbulb</span>
+                        Pro Tips
+                    </h3>
+<ul class="space-y-4">
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5 shrink-0"></div>
+<p class="text-xs text-slate-600">PDFs with text layers work best for AI recognition.</p>
+</li>
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5 shrink-0"></div>
+<p class="text-xs text-slate-600">Multiple files can be uploaded simultaneously.</p>
+</li>
+<li class="flex gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-[#008A3F] mt-1.5 shrink-0"></div>
+<p class="text-xs text-slate-600">Images inside slides are scanned for handwritten notes.</p>
+</li>
+</ul>
+</div>
+<!-- Visual Accent -->
+<div class="h-40 rounded-3xl overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="Close up of high-end stationary and digital tablet on a clean workspace with natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBL9K8Eu8WayeqDZdkmYXGeMkawIQ9RVW2vOoAgsTAvGE3PD9BOh1rXc4WVs7omI4IsG7tape80nqCWXWmuw5s22zecbHn4rADlHC7IRnoSkAiX5BhaFawOc54OJHkpFryzBAC_G1uJZF1mWyHVDKh_ao7C5IG46PUCq60GqAuvAl7uM51EU3GVT1K8_DwOW8PjXf9LH2z-vT-UJp73rUiPfMcG5EJEyPmm_sTLtHD5xnsP6a7U2aok669nIXM0fiqImV31fzZTC4I"/>
+<div class="absolute inset-0 bg-navy-deep/30 flex items-center justify-center">
+<span class="text-white font-black text-xl tracking-tighter drop-shadow-lg">LEARN SMARTER</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe md:hidden bg-white dark:bg-[#0D0C22] docked full-width bottom-0 rounded-t-2xl border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] transition-all">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1">
+<span class="material-symbols-outlined" data-icon="cloud_upload" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] transition-all">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
+</div>
+</nav>
+</body></html>

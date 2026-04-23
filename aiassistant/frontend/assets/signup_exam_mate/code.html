@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up | Exam Mate</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+  tailwind.config={darkMode:"class",theme:{extend:{colors:{primary:"#008A3F",navy:"#0D0C22"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},fontFamily:{headline:["Public Sans","sans-serif"],body:["Public Sans","sans-serif"],label:["Public Sans","sans-serif"]}}}}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family:'Public Sans',sans-serif; min-height:100dvh; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  .glass-panel { background:rgba(255,255,255,0.03); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); }
+  .grain-overlay { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); opacity:0.05; pointer-events:none; }
+  .spinner { width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;white-space:nowrap; }
+  .toast.show { opacity:1; }
+  .toast.error { background:#dc2626;color:#fff; }
+  .toast.success { background:#008A3F;color:#fff; }
+</style>
+</head>
+<body class="h-full bg-navy font-body text-slate-200 antialiased overflow-hidden" style="background:#0D0C22;">
+
+<!-- Background -->
+<div class="fixed inset-0 z-0">
+  <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
+  <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[120px]"></div>
+  <div class="grain-overlay absolute inset-0"></div>
+</div>
+
+<main class="relative z-10 flex min-h-screen items-center justify-center p-6 lg:p-12">
+  <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-hidden rounded-xl shadow-2xl shadow-black/50 border border-white/5">
+
+    <!-- Branding Side -->
+    <div class="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden" style="background:#0D0C22;">
+      <div class="relative z-20">
+        <div class="flex items-center gap-2 mb-12">
+          <span class="material-symbols-outlined text-[#008A3F] text-3xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+          <h1 class="text-2xl font-extrabold tracking-tight text-white font-headline">Exam Mate</h1>
+        </div>
+        <h2 class="text-4xl font-bold text-white leading-tight mb-6">Master your future with AI-driven prep.</h2>
+        <p class="text-slate-400 text-lg leading-relaxed max-w-sm">Join the next generation of students using intelligent analysis to ace their examinations.</p>
+      </div>
+      <div class="relative z-20 flex gap-4 items-center">
+        <div class="flex -space-x-3">
+          <div class="w-10 h-10 rounded-full border-2 border-[#0D0C22] bg-emerald-700 flex items-center justify-center text-white font-bold text-xs">A</div>
+          <div class="w-10 h-10 rounded-full border-2 border-[#0D0C22] bg-blue-700 flex items-center justify-center text-white font-bold text-xs">B</div>
+          <div class="w-10 h-10 rounded-full border-2 border-[#0D0C22] bg-purple-700 flex items-center justify-center text-white font-bold text-xs">C</div>
+        </div>
+        <span class="text-sm text-slate-400 font-medium">Join other students</span>
+      </div>
+      <div class="absolute bottom-0 right-0 w-full h-full opacity-10">
+        <div class="absolute bottom-0 right-0 w-64 h-64 bg-[#008A3F] rounded-full blur-[80px]"></div>
+      </div>
+    </div>
+
+    <!-- Form Side -->
+    <div class="bg-[#14132B] p-8 lg:p-16 flex flex-col justify-center">
+      <div class="mb-10 lg:hidden flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#008A3F] text-2xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+        <span class="text-lg font-extrabold tracking-tight text-white">Exam Mate</span>
+      </div>
+      <div class="max-w-md mx-auto w-full">
+        <header class="mb-8">
+          <h3 class="text-2xl font-bold text-white mb-2">Create an account</h3>
+          <p class="text-slate-400">Start your journey to academic excellence today.</p>
+        </header>
+
+        <form id="signupForm" class="space-y-6" onsubmit="handleSignup(event)">
+          <!-- Name -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold uppercase tracking-widest text-slate-500 ml-1" for="name">Full Name</label>
+            <div class="relative group">
+              <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#008A3F] transition-colors text-xl">person</span>
+              <input class="w-full bg-[#0D0C22]/50 border border-white/10 rounded-lg py-3.5 pl-12 pr-4 text-white placeholder:text-slate-600 focus:border-[#008A3F] focus:ring-1 focus:ring-[#008A3F] transition-all outline-none" id="name" placeholder="John Doe" type="text" required/>
+            </div>
+          </div>
+          <!-- Email -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold uppercase tracking-widest text-slate-500 ml-1" for="email">Email Address</label>
+            <div class="relative group">
+              <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#008A3F] transition-colors text-xl">mail</span>
+              <input class="w-full bg-[#0D0C22]/50 border border-white/10 rounded-lg py-3.5 pl-12 pr-4 text-white placeholder:text-slate-600 focus:border-[#008A3F] focus:ring-1 focus:ring-[#008A3F] transition-all outline-none" id="email" placeholder="name@example.com" type="email" required/>
+            </div>
+          </div>
+          <!-- Password -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold uppercase tracking-widest text-slate-500 ml-1" for="password">Password</label>
+            <div class="relative group">
+              <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#008A3F] transition-colors text-xl">lock</span>
+              <input class="w-full bg-[#0D0C22]/50 border border-white/10 rounded-lg py-3.5 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-[#008A3F] focus:ring-1 focus:ring-[#008A3F] transition-all outline-none" id="password" placeholder="••••••••" type="password" required minlength="6"/>
+              <button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300" type="button" onclick="togglePwd()">
+                <span class="material-symbols-outlined text-xl" id="eyeIcon">visibility</span>
+              </button>
+            </div>
+          </div>
+          <!-- Terms -->
+          <div class="flex items-center gap-3 py-2">
+            <input class="w-5 h-5 rounded border-white/10 bg-[#0D0C22]/50 text-[#008A3F] focus:ring-[#008A3F]" id="terms" type="checkbox" required/>
+            <label class="text-sm text-slate-400 leading-tight" for="terms">
+              I agree to the <a class="text-[#008A3F] hover:underline font-medium" href="#">Terms of Service</a> and <a class="text-[#008A3F] hover:underline font-medium" href="#">Privacy Policy</a>.
+            </label>
+          </div>
+          <!-- Submit -->
+          <button id="signupBtn" class="w-full bg-[#008A3F] hover:bg-emerald-600 text-white font-bold py-4 rounded-lg shadow-lg shadow-[#008A3F]/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group" type="submit">
+            <span id="signupBtnText">Create Account</span>
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          </button>
+        </form>
+
+        <div class="mt-8 pt-8 border-t border-white/5 text-center">
+          <p class="text-slate-400 text-sm">Already have an account? <button onclick="navigate('login')" class="text-[#008A3F] font-bold hover:underline">Log in</button></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="../api-utils.js"></script>
+<script>
+
+
+function togglePwd() {
+  const f = document.getElementById('password');
+  const i = document.getElementById('eyeIcon');
+  if (f.type==='password') { f.type='text'; i.textContent='visibility_off'; }
+  else { f.type='password'; i.textContent='visibility'; }
+}
+
+if (localStorage.getItem('em_token')) navigate('dashboard');
+
+async function handleSignup(e) {
+  e.preventDefault();
+  const btn = document.getElementById('signupBtn');
+  const btnText = document.getElementById('signupBtnText');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner"></span>';
+
+  const name    = document.getElementById('name').value.trim();
+  const email   = document.getElementById('email').value.trim();
+  const password= document.getElementById('password').value;
+
+  try {
+    const res = await fetch(API + '/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+    localStorage.setItem('em_token', data.token);
+    localStorage.setItem('em_user', JSON.stringify(data.user));
+    showToast('Welcome to Exam Mate, ' + data.user.name + '!', 'success');
+    setTimeout(() => navigate('dashboard'), 600);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Create Account';
+  }
+}
+</script>
+</body>
+</html>

@@ -47,10 +47,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("[ERROR] SUPABASE_URL and SUPABASE_KEY are required for deployment.")
+    import sys
+    print("FATAL: SUPABASE_URL and SUPABASE_KEY environment variables are required.", file=sys.stderr)
+    sys.exit(1)
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -129,7 +131,10 @@ def register():
     }
     result = supabase.table("users").insert(user_doc).execute()
     if not result.data:
-        return jsonify({"error": "Failed to create account"}), 500
+        # Check if error exists in response if the SDK version returns it
+        err = getattr(result, 'error', None)
+        print(f"[Supabase Error] Registration failed: {err}")
+        return jsonify({"error": "Account creation failed. Please try again."}), 500
         
     user_id = result.data[0]["id"]
     token = make_token(str(user_id), email)
@@ -160,7 +165,10 @@ def login():
     token = make_token(user_id, email)
 
     # Update last_active
-    supabase.table("users").update({"last_active": datetime.datetime.utcnow().isoformat()}).eq("id", user["id"]).execute()
+    try:
+        supabase.table("users").update({"last_active": datetime.datetime.utcnow().isoformat()}).eq("id", user["id"]).execute()
+    except Exception as e:
+        print(f"[Supabase Warning] Failed to update last_active: {e}")
 
     return jsonify({
         "message": "Login successful",
@@ -260,12 +268,12 @@ def upload_file():
     }
     supabase.table("documents").insert(doc_record).execute()
 
-    # Increment user's document count
-    # Supabase/Postgres increment usually requires a RPC or direct update
-    user_res = supabase.table("users").select("documents_uploaded").eq("id", request.user_id).execute()
-    if user_res.data:
-        curr = user_res.data[0].get("documents_uploaded", 0)
-        supabase.table("users").update({"documents_uploaded": curr + 1}).eq("id", request.user_id).execute()
+    # Increment user's document count atomically via Supabase RPC
+    # NOTE: You must create this function in Supabase SQL Editor (see summary)
+    try:
+        supabase.rpc("increment_documents_uploaded", {"row_id": request.user_id}).execute()
+    except Exception as e:
+        print(f"[Supabase Warning] Atomic increment failed (ensure RPC exists): {e}")
 
     return jsonify({
         "message": "File uploaded and processed successfully",
@@ -281,13 +289,10 @@ def upload_file():
 def get_documents():
     res = supabase.table("documents").select("*").eq("user_id", request.user_id).order("uploaded_at", desc=True).limit(20).execute()
     docs = res.data or []
-    # Remove sensitive path
+    # Remove sensitive path and ensure JSON serializable
     for d in docs:
         d.pop("stored_path", None)
-
-    for d in docs:
-        if "uploaded_at" in d:
-            d["uploaded_at"] = d["uploaded_at"].isoformat()
+        # SUPABASE returns ISO strings, no need to call .isoformat() manually
 
     return jsonify({"documents": docs})
 
@@ -328,11 +333,11 @@ def ask_question():
         }
         res = supabase.table("questions").insert(q_record).execute()
 
-        # Increment user question counter
-        user_res = supabase.table("users").select("total_questions").eq("id", request.user_id).execute()
-        if user_res.data:
-            curr = user_res.data[0].get("total_questions", 0)
-            supabase.table("users").update({"total_questions": curr + 1}).eq("id", request.user_id).execute()
+        # Increment user question counter atomically via Supabase RPC
+        try:
+            supabase.rpc("increment_total_questions", {"row_id": request.user_id}).execute()
+        except Exception as e:
+            print(f"[Supabase Warning] Atomic increment failed (ensure RPC exists): {e}")
 
         return jsonify({
             "status": "success",
@@ -400,8 +405,12 @@ def get_history():
     results = []
     for item in items:
         asked_at = item.get("asked_at")
-        if not asked_at:
-            asked_at = datetime.datetime.now(datetime.timezone.utc)
+        # Parse ISO string back to datetime object
+        if isinstance(asked_at, str):
+            try:
+                asked_at = datetime.datetime.fromisoformat(asked_at.replace("Z", "+00:00"))
+            except ValueError:
+                asked_at = datetime.datetime.now(datetime.timezone.utc)
         
         # Ensure asked_at is timezone-aware for comparison
         if asked_at.tzinfo is None:

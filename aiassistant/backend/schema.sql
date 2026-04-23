@@ -48,3 +48,10 @@ update users
 set total_questions = total_questions + 1
 where id = row_id;
 $$ language sql;
+
+-- 5. Enable Row Level Security (RLS)
+-- This ensures the tables cannot be accessed directly from the frontend via the public 'anon' key.
+-- Since the Flask backend acts as a secure server, it should use the 'service_role' key in Render to bypass RLS.
+alter table users enable row level security;
+alter table documents enable row level security;
+alter table questions enable row level security;

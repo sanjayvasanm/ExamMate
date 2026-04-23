@@ -1,5 +1,5 @@
-// Use centralized API from api-utils.js if available, otherwise fallback to localhost
-const API_BASE = window.API || "http://localhost:5000/api";
+// Use centralized API from api-utils.js if available, otherwise fallback to production URL
+const API_BASE = window.API || "https://exam-mate-backend-w5t6.onrender.com/api";
 
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Navigation Mapping

@@ -9,23 +9,7 @@ const getApiUrl = () => {
   const override = localStorage.getItem('em_api_override');
   if (override) return override;
 
-  const LOCAL_PC_IP = '192.168.29.70';
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-
-  // If accessing via localhost (works on PC and Mobile via 'adb reverse')
-  if (isLocalhost) {
-    return 'http://localhost:5000/api';
-  }
-
-  // If on mobile (Wi-Fi), use the specific PC IP.
-  if (isMobile) {
-    console.log(`[API] Connecting to Mobile Wi-Fi PC: http://${LOCAL_PC_IP}:5000/api`);
-    return `http://${LOCAL_PC_IP}:5000/api`;
-  }
-
-  // Fallback to PC IP for local network access
-  return `http://${LOCAL_PC_IP}:5000/api`;
+  return 'https://exam-mate-backend-w5t6.onrender.com/api';
 };
 
 const API = getApiUrl();
@@ -42,7 +26,7 @@ if ('serviceWorker' in navigator) {
 async function apiFetch(url, options = {}) {
   const token = localStorage.getItem('em_token');
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
+  const timeout = setTimeout(() => controller.abort(), 300000); // 300s (5m) timeout for heavy AI processing
 
   const headers = {
     ...options.headers

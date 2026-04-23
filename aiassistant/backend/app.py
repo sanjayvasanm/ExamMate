@@ -121,11 +121,10 @@ def register():
     user_doc = {
         "name": name,
         "email": email,
-        "password_hash": generate_password_hash(password),
+        "password": generate_password_hash(password),
         "created_at": datetime.datetime.utcnow().isoformat(),
         "study_streak": 0,
         "total_questions": 0,
-        "avg_score": 0,
         "documents_uploaded": 0,
         "last_active": datetime.datetime.utcnow().isoformat(),
     }
@@ -158,7 +157,7 @@ def login():
     user_res = supabase.table("users").select("*").eq("email", email).execute()
     user = user_res.data[0] if user_res.data else None
     
-    if not user or not check_password_hash(user["password_hash"], password):
+    if not user or not check_password_hash(user["password"], password):
         return jsonify({"error": "Invalid email or password"}), 401
 
     user_id = str(user["id"])

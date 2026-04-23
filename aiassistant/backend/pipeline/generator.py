@@ -60,6 +60,53 @@ def _pick_diagram_type(query: str) -> tuple[str, str]:
     return "graph", "A structural diagram for the topic"
 
 
+# Simple circuit breaker state
+_groq_cooldown_until = 0
+
+def _groq_completion_with_fallback(messages, response_format=None, temperature=0.2, max_tokens=1500):
+    """
+    Handles Groq API calls with a lightweight circuit breaker.
+    If the primary model is rate-limited, it switches to a fallback model 
+    and enters a cooldown period to avoid sequential retries and latency spikes.
+    """
+    global _groq_cooldown_until
+    if client is None:
+        raise RuntimeError("GROQ_API_KEY not configured")
+
+    # If in cooldown, start with the fallback model
+    current_time = time.time()
+    if current_time < _groq_cooldown_until:
+        models_to_try = ["llama-3.1-8b-instant", GROQ_MODEL]
+    else:
+        models_to_try = [GROQ_MODEL, "llama-3.1-8b-instant"]
+    
+    for model_name in models_to_try:
+        try:
+            params = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+            if response_format:
+                params["response_format"] = response_format
+            
+            return client.chat.completions.create(**params)
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "429" in err_msg or "rate limit" in err_msg or "503" in err_msg:
+                # If the primary model fails, trigger/extend cooldown
+                if model_name == GROQ_MODEL:
+                    print(f"[Groq] Primary model {model_name} rate limited. Entering 30s cooldown.")
+                    _groq_cooldown_until = time.time() + 30
+                continue
+            else:
+                print(f"[Groq Error] {model_name}: {e}")
+                break
+                    
+    raise RuntimeError("All Groq models failed or were rate limited.")
+
+
 def fix_mermaid_diagram(broken_code: str, error_message: str, diagram_type: str) -> str:
     """
     Uses Groq to self-correct a broken Mermaid diagram.
@@ -89,8 +136,7 @@ STRICT RULES:
 """
 
     try:
-        completion = client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = _groq_completion_with_fallback(
             messages=[
                 {"role": "system", "content": "You are a Mermaid.js syntax fixer. Output only corrected Mermaid code, never wrap in markdown."},
                 {"role": "user", "content": fix_prompt},
@@ -149,8 +195,7 @@ Now generate the diagram for: {query}
 """
 
     try:
-        completion = client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = _groq_completion_with_fallback(
             messages=[
                 {"role": "system", "content": "You are a Mermaid.js diagram generator. Output only valid Mermaid code. Never use markdown code fences."},
                 {"role": "user", "content": prompt},
@@ -230,11 +275,7 @@ def generate_exam_answer(query, context, mode="detailed", marks=5):
     """
 
     try:
-        if client is None:
-            raise RuntimeError("Missing GROQ_API_KEY environment variable")
-
-        completion = client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = _groq_completion_with_fallback(
             messages=[
                 {"role": "system", "content": "You are a JSON-only Academic API. Never use markdown code blocks. Output pure JSON only."},
                 {"role": "user", "content": prompt}

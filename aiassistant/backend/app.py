@@ -2,6 +2,7 @@ import os
 import time
 import json
 import datetime
+import uuid
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -234,7 +235,7 @@ def upload_file():
     file.save(filepath)
 
     chunks_processed = 0
-    doc_id = f"doc_{int(time.time())}"
+    doc_id = str(uuid.uuid4())
 
     # Process AI pipeline for all supported document types
     ext = filename.rsplit(".", 1)[1].lower()
@@ -255,7 +256,7 @@ def upload_file():
 
     # Persist document metadata to Supabase
     doc_record = {
-        "doc_id": doc_id,
+        "id": doc_id,
         "user_id": request.user_id,
         "filename": filename,
         "stored_path": filepath,

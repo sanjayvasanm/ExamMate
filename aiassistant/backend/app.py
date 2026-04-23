@@ -13,8 +13,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from pymongo import MongoClient
-from bson import ObjectId
+from supabase import create_client, Client
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
 from pipeline.extractor import extract_text_hybrid, chunk_content
@@ -46,28 +45,18 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ── MongoDB ───────────────────────────────────────────────────────────────────
-MONGO_URI = os.environ.get("MONGO_URI")
-if not MONGO_URI:
-    # Allow localhost for local dev but warn strongly
-    print("[WARNING] MONGO_URI not found. Defaulting to localhost:27017 (this will likely fail in production).")
-    MONGO_URI = "mongodb://localhost:27017/"
-DB_NAME = "exammate"
+# ── Supabase ──────────────────────────────────────────────────────────────────
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("[ERROR] SUPABASE_URL and SUPABASE_KEY are required for deployment.")
 
 try:
-    mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    mongo_client.server_info()  # trigger connection test
-    db = mongo_client[DB_NAME]
-    users_col = db["users"]
-    questions_col = db["questions"]
-    documents_col = db["documents"]
-
-    # Unique index on email
-    users_col.create_index("email", unique=True)
-    print(f"[MongoDB] Connected → {MONGO_URI}{DB_NAME}")
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print(f"[Supabase] Connected to {SUPABASE_URL}")
 except Exception as exc:
-    print(f"[MongoDB] Connection failed: {exc}")
-    raise SystemExit(1) from exc
+    print(f"[Supabase] Connection failed: {exc}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,10 +94,7 @@ def token_required(f):
 
 
 def serialize_doc(doc: dict) -> dict:
-    """Convert ObjectId fields to strings for JSON serialisation."""
-    if doc is None:
-        return {}
-    doc["_id"] = str(doc["_id"])
+    """Supabase returns JSON-serializable data by default."""
     return doc
 
 
@@ -125,28 +111,33 @@ def register():
     if len(password) < 6:
         return jsonify({"error": "Password must be at least 6 characters"}), 400
 
-    if users_col.find_one({"email": email}):
+    # Check if exists
+    existing = supabase.table("users").select("id").eq("email", email).execute()
+    if existing.data:
         return jsonify({"error": "Email already registered"}), 409
 
     user_doc = {
         "name": name,
         "email": email,
         "password_hash": generate_password_hash(password),
-        "created_at": datetime.datetime.utcnow(),
+        "created_at": datetime.datetime.utcnow().isoformat(),
         "study_streak": 0,
         "total_questions": 0,
         "avg_score": 0,
         "documents_uploaded": 0,
-        "last_active": datetime.datetime.utcnow(),
+        "last_active": datetime.datetime.utcnow().isoformat(),
     }
-    result = users_col.insert_one(user_doc)
-    user_id = str(result.inserted_id)
-    token = make_token(user_id, email)
+    result = supabase.table("users").insert(user_doc).execute()
+    if not result.data:
+        return jsonify({"error": "Failed to create account"}), 500
+        
+    user_id = result.data[0]["id"]
+    token = make_token(str(user_id), email)
 
     return jsonify({
         "message": "Account created successfully",
         "token": token,
-        "user": {"id": user_id, "name": name, "email": email},
+        "user": {"id": str(user_id), "name": name, "email": email},
     }), 201
 
 
@@ -159,15 +150,17 @@ def login():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    user = users_col.find_one({"email": email})
+    user_res = supabase.table("users").select("*").eq("email", email).execute()
+    user = user_res.data[0] if user_res.data else None
+    
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    user_id = str(user["_id"])
+    user_id = str(user["id"])
     token = make_token(user_id, email)
 
     # Update last_active
-    users_col.update_one({"_id": user["_id"]}, {"$set": {"last_active": datetime.datetime.utcnow()}})
+    supabase.table("users").update({"last_active": datetime.datetime.utcnow().isoformat()}).eq("id", user["id"]).execute()
 
     return jsonify({
         "message": "Login successful",
@@ -180,35 +173,37 @@ def login():
 @app.route("/api/profile", methods=["GET"])
 @token_required
 def get_profile():
-    from bson import ObjectId as ObjId
-    user = users_col.find_one({"_id": ObjId(request.user_id)})
+    user_res = supabase.table("users").select("*").eq("id", request.user_id).execute()
+    user = user_res.data[0] if user_res.data else None
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    q_count = questions_col.count_documents({"user_id": request.user_id})
-    d_count = documents_col.count_documents({"user_id": request.user_id})
+    q_res = supabase.table("questions").select("id", count="exact").eq("user_id", request.user_id).execute()
+    q_count = q_res.count if q_res.count is not None else 0
+    
+    d_res = supabase.table("documents").select("id", count="exact").eq("user_id", request.user_id).execute()
+    d_count = d_res.count if d_res.count is not None else 0
 
     return jsonify({
-        "id": str(user["_id"]),
+        "id": str(user["id"]),
         "name": user.get("name", ""),
         "email": user.get("email", ""),
         "study_streak": user.get("study_streak", 0),
         "total_questions": q_count,
         "documents_uploaded": d_count,
         "avg_score": user.get("avg_score", 0),
-              "created_at": user.get("created_at", datetime.datetime.now(datetime.timezone.utc)).isoformat(),
+        "created_at": user.get("created_at"),
     })
 
 
 @app.route("/api/profile/update", methods=["PUT"])
 @token_required
 def update_profile():
-    from bson import ObjectId as ObjId
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"error": "Name is required"}), 400
-    users_col.update_one({"_id": ObjId(request.user_id)}, {"$set": {"name": name}})
+    supabase.table("users").update({"name": name}).eq("id", request.user_id).execute()
     return jsonify({"message": "Profile updated"})
 
 
@@ -251,7 +246,7 @@ def upload_file():
         except Exception as exc:
             print(f"[Pipeline] Error processing {filename}: {exc}")
 
-    # Persist document metadata to MongoDB
+    # Persist document metadata to Supabase
     doc_record = {
         "doc_id": doc_id,
         "user_id": request.user_id,
@@ -260,17 +255,17 @@ def upload_file():
         "file_type": ext.upper(),
         "file_size_mb": round(os.path.getsize(filepath) / (1024 * 1024), 2),
         "chunks_processed": chunks_processed,
-              "uploaded_at": datetime.datetime.now(datetime.timezone.utc),
+        "uploaded_at": datetime.datetime.utcnow().isoformat(),
         "status": "processed" if chunks_processed > 0 else "uploaded",
     }
-    documents_col.insert_one(doc_record)
+    supabase.table("documents").insert(doc_record).execute()
 
     # Increment user's document count
-    from bson import ObjectId as ObjId
-    users_col.update_one(
-        {"_id": ObjId(request.user_id)},
-        {"$inc": {"documents_uploaded": 1}},
-    )
+    # Supabase/Postgres increment usually requires a RPC or direct update
+    user_res = supabase.table("users").select("documents_uploaded").eq("id", request.user_id).execute()
+    if user_res.data:
+        curr = user_res.data[0].get("documents_uploaded", 0)
+        supabase.table("users").update({"documents_uploaded": curr + 1}).eq("id", request.user_id).execute()
 
     return jsonify({
         "message": "File uploaded and processed successfully",
@@ -284,10 +279,11 @@ def upload_file():
 @app.route("/api/documents", methods=["GET"])
 @token_required
 def get_documents():
-    docs = list(documents_col.find(
-        {"user_id": request.user_id},
-        {"_id": 0, "stored_path": 0},
-    ).sort("uploaded_at", -1).limit(20))
+    res = supabase.table("documents").select("*").eq("user_id", request.user_id).order("uploaded_at", desc=True).limit(20).execute()
+    docs = res.data or []
+    # Remove sensitive path
+    for d in docs:
+        d.pop("stored_path", None)
 
     for d in docs:
         if "uploaded_at" in d:
@@ -317,7 +313,7 @@ def ask_question():
         all_text = answer.get("explanation", "") + " ".join(answer.get("points", []))
         keywords = detect_keywords(all_text)
 
-        # Persist question to DB
+        # Persist question to Supabase
         q_record = {
             "user_id": request.user_id,
             "document_id": doc_id,
@@ -327,21 +323,20 @@ def ask_question():
             "answer": answer,
             "diagrams": diagrams,
             "keywords": keywords,
-            "asked_at": datetime.datetime.now(datetime.timezone.utc),
+            "asked_at": datetime.datetime.utcnow().isoformat(),
             "subject": data.get("subject", "General"),
         }
-        result = questions_col.insert_one(q_record)
+        res = supabase.table("questions").insert(q_record).execute()
 
         # Increment user question counter
-        from bson import ObjectId as ObjId
-        users_col.update_one(
-            {"_id": ObjId(request.user_id)},
-            {"$inc": {"total_questions": 1}},
-        )
+        user_res = supabase.table("users").select("total_questions").eq("id", request.user_id).execute()
+        if user_res.data:
+            curr = user_res.data[0].get("total_questions", 0)
+            supabase.table("users").update({"total_questions": curr + 1}).eq("id", request.user_id).execute()
 
         return jsonify({
             "status": "success",
-            "question_id": str(result.inserted_id),
+            "question_id": str(res.data[0]["id"]) if res.data else "unknown",
             "question": question,
             "answer": answer,
             "diagrams": diagrams,
@@ -396,11 +391,12 @@ def fix_diagram():
 @token_required
 def get_history():
     search = request.args.get("q", "").strip()
-    query: dict = {"user_id": request.user_id}
+    query = supabase.table("questions").select("*").eq("user_id", request.user_id)
     if search:
-        query["question"] = {"$regex": search, "$options": "i"}
+        query = query.ilike("question", f"%{search}%")
 
-    items = list(questions_col.find(query).sort("asked_at", -1).limit(50))
+    res = query.order("asked_at", desc=True).limit(50).execute()
+    items = res.data or []
     results = []
     for item in items:
         asked_at = item.get("asked_at")
@@ -421,13 +417,13 @@ def get_history():
             time_label = asked_at.strftime("%d %b %Y")
 
         results.append({
-            "id": str(item["_id"]),
+            "id": str(item["id"]),
             "question": item.get("question", ""),
             "subject": item.get("subject", "General"),
             "mode": item.get("mode", "detailed"),
             "marks": item.get("marks", 5),
             "time_label": time_label,
-            "asked_at": asked_at.isoformat(),
+            "asked_at": item.get("asked_at"),
         })
 
     return jsonify({"history": results})
@@ -436,39 +432,29 @@ def get_history():
 @app.route("/api/history/<question_id>", methods=["GET"])
 @token_required
 def get_question_detail(question_id):
-    from bson import ObjectId as ObjId
     try:
-        item = questions_col.find_one({
-            "_id": ObjId(question_id),
-            "user_id": request.user_id,
-        })
+        res = supabase.table("questions").select("*").eq("id", question_id).eq("user_id", request.user_id).execute()
+        item = res.data[0] if res.data else None
     except Exception:
         return jsonify({"error": "Invalid question ID"}), 400
 
     if not item:
         return jsonify({"error": "Question not found"}), 404
 
-    item["_id"] = str(item["_id"])
-    if "asked_at" in item:
-        item["asked_at"] = item["asked_at"].isoformat()
-
+    item["id"] = str(item["id"])
     return jsonify(item)
 
 
 @app.route("/api/history/<question_id>", methods=["DELETE"])
 @token_required
 def delete_question(question_id):
-    from bson import ObjectId as ObjId
     try:
-        result = questions_col.delete_one({
-            "_id": ObjId(question_id),
-            "user_id": request.user_id,
-        })
+        result = supabase.table("questions").delete().eq("id", question_id).eq("user_id", request.user_id).execute()
     except Exception:
         return jsonify({"error": "Invalid question ID"}), 400
 
-    if result.deleted_count == 0:
-        return jsonify({"error": "Question not found"}), 404
+    if not result.data:
+        return jsonify({"error": "Question not found or already deleted"}), 404
 
     return jsonify({"message": "Deleted successfully"})
 
@@ -477,28 +463,24 @@ def delete_question(question_id):
 @app.route("/api/dashboard", methods=["GET"])
 @token_required
 def get_dashboard():
-    from bson import ObjectId as ObjId
+    user_res = supabase.table("users").select("*").eq("id", request.user_id).execute()
+    user = user_res.data[0] if user_res.data else None
+    
+    q_res = supabase.table("questions").select("id", count="exact").eq("user_id", request.user_id).execute()
+    q_count = q_res.count if q_res.count is not None else 0
+    
+    d_res = supabase.table("documents").select("id", count="exact").eq("user_id", request.user_id).execute()
+    d_count = d_res.count if d_res.count is not None else 0
 
-    user = users_col.find_one({"_id": ObjId(request.user_id)})
-    q_count = questions_col.count_documents({"user_id": request.user_id})
-    d_count = documents_col.count_documents({"user_id": request.user_id})
-
-    recent_docs = list(documents_col.find(
-        {"user_id": request.user_id},
-        {"_id": 0, "stored_path": 0},
-    ).sort("uploaded_at", -1).limit(3))
+    recent_docs_res = supabase.table("documents").select("*").eq("user_id", request.user_id).order("uploaded_at", desc=True).limit(3).execute()
+    recent_docs = recent_docs_res.data or []
     for d in recent_docs:
-        if "uploaded_at" in d:
-            d["uploaded_at"] = d["uploaded_at"].isoformat()
+        d.pop("stored_path", None)
 
-    recent_questions = list(questions_col.find(
-        {"user_id": request.user_id},
-        {"stored_path": 0},
-    ).sort("asked_at", -1).limit(3))
+    recent_questions_res = supabase.table("questions").select("*").eq("user_id", request.user_id).order("asked_at", desc=True).limit(3).execute()
+    recent_questions = recent_questions_res.data or []
     for q in recent_questions:
-        q["_id"] = str(q["_id"])
-        if "asked_at" in q:
-            q["asked_at"] = q["asked_at"].isoformat()
+        q["id"] = str(q["id"])
 
     return jsonify({
         "user_name": user.get("name", "") if user else "",
@@ -514,7 +496,7 @@ def get_dashboard():
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "db": DB_NAME})
+    return jsonify({"status": "ok", "db": "supabase"})
 
 
 if __name__ == "__main__":

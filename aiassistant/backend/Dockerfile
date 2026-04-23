@@ -1,4 +1,11 @@
+# Use a specific version for stability
 FROM python:3.10-slim
+
+# Memory optimization environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MALLOC_ARENA_MAX=2 \
+    PORT=10000
 
 # Install system dependencies for PaddleOCR and standard tools
 RUN apt-get update && apt-get install -y \
@@ -12,9 +19,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy requirements and install
+# Copy requirements and install with memory efficiency
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
@@ -22,9 +30,9 @@ COPY . .
 # Ensure the uploads directory exists
 RUN mkdir -p uploads
 
-# Expose the port Flask/Gunicorn will run on
-EXPOSE 5000
+# Expose the port (Render uses $PORT)
+EXPOSE 10000
 
-# Start the application using Gunicorn, binding to the dynamic PORT provided by Render
-# We use sh -c to allow environment variable expansion while keeping the exec form for signals
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} app:app --timeout 180"]
+# Start with a single worker to stay within 512MB RAM limit
+# We use threads instead of workers for better memory sharing
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} app:app --workers 1 --threads 2 --timeout 120 --log-level info"]

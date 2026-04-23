@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: exam-mate-backend
+    runtime: docker
+    plan: free # Explicitly set free plan
+    dockerContext: aiassistant/backend
+    dockerfilePath: aiassistant/backend/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true # Generate if not present
+      - key: GROQ_API_KEY
+        sync: false # Set this in Render Dashboard
+      - key: MONGO_URI
+        sync: false # Set your MongoDB Atlas connection string here
+      - key: PORT
+        value: "10000"
+      - key: PYTHON_VERSION
+        value: "3.10.0"

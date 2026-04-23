@@ -519,6 +519,6 @@ def health():
 
 if __name__ == "__main__":
     # Use dynamic port for Render/Cloud deployment
-    port = int(os.environ.get("PORT", 5000))
-    # use_reloader=False is required for Python 3.13 on Windows to avoid WinError 10038
-    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
+    port = int(os.environ.get("PORT", 10000))
+    # In production, debug must be False to save memory and for security
+    app.run(host="0.0.0.0", port=port, debug=False)

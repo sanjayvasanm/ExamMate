@@ -11,7 +11,9 @@ services:
         sync: false # Set this in Render Dashboard
       - key: GROQ_API_KEY
         sync: false # Set this in Render Dashboard
-      - key: MONGO_URI
-        sync: false # Set your MongoDB Atlas connection string here
+      - key: SUPABASE_URL
+        sync: false # Set your Supabase URL here
+      - key: SUPABASE_KEY
+        sync: false # Set your Supabase Service/Anon Key here
       - key: CORS_ORIGINS
         value: "*" # Update this to your frontend URL in production for better security

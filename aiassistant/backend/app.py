@@ -292,6 +292,7 @@ def get_documents():
     # Remove sensitive path and ensure JSON serializable
     for d in docs:
         d.pop("stored_path", None)
+        d["doc_id"] = d.get("id")
         # SUPABASE returns ISO strings, no need to call .isoformat() manually
 
     return jsonify({"documents": docs})
@@ -306,6 +307,13 @@ def ask_question():
         question = (data.get("question") or "").strip()
         mode = data.get("mode", "detailed")
         doc_id = data.get("document_id")
+        if doc_id:
+            try:
+                uuid.UUID(str(doc_id))
+            except ValueError:
+                print(f"[API Warning] Invalid document_id '{doc_id}', treating as None.")
+                doc_id = None
+        
         marks = data.get("marks", 5)
 
         if not question:
@@ -485,6 +493,7 @@ def get_dashboard():
     recent_docs = recent_docs_res.data or []
     for d in recent_docs:
         d.pop("stored_path", None)
+        d["doc_id"] = d.get("id")
 
     recent_questions_res = supabase.table("questions").select("*").eq("user_id", request.user_id).order("asked_at", desc=True).limit(3).execute()
     recent_questions = recent_questions_res.data or []

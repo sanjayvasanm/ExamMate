@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from supabase import create_client, Client
+from postgrest.exceptions import APIError
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
 from pipeline.extractor import extract_text_hybrid, chunk_content
@@ -57,9 +58,43 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print(f"[Supabase] Connected to {SUPABASE_URL}")
+    # Simple ping to verify connection
+    supabase.table("users").select("id").limit(1).execute()
+    print(f"[Supabase] Connected and verified: {SUPABASE_URL}")
+except APIError as e:
+    print(f"[Supabase] Connection error (APIError): {e}")
+    if "521" in str(e):
+        print("CRITICAL: Supabase project seems to be PAUSED or DOWN (521). Please check the Supabase dashboard.")
 except Exception as exc:
     print(f"[Supabase] Connection failed: {exc}")
+
+
+# ── Global Error Handlers ─────────────────────────────────────────────────────
+@app.errorhandler(APIError)
+def handle_supabase_error(e):
+    """
+    Handle Supabase/PostgREST API errors globally.
+    Specifically detects 521 (Project Down/Paused) and returns a friendly message.
+    """
+    import traceback
+    traceback.print_exc()
+    
+    error_msg = str(e)
+    # 521 is the code for "Web server is down" from Cloudflare/Supabase
+    if "521" in error_msg or "JSON could not be generated" in error_msg:
+        return jsonify({
+            "status": "error",
+            "error": "Database Service Unavailable",
+            "message": "The database project is currently paused or down. Please go to the Supabase Dashboard and 'Restore' your project.",
+            "hint": "Check if your Supabase project is active and not paused due to inactivity."
+        }), 503
+    
+    return jsonify({
+        "status": "error",
+        "error": "Database Error",
+        "message": "An error occurred while communicating with the database.",
+        "details": error_msg
+    }), 500
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,6 +129,60 @@ def token_required(f):
         request.user_email = payload["email"]
         return f(*args, **kwargs)
     return decorated
+
+
+def update_user_streak(user_id):
+    """
+    Increments or resets user study streak based on last activity.
+    Logic:
+    - Today already active: No change to streak count, but update last_active
+    - Last active yesterday: Streak + 1
+    - Last active before yesterday: Streak = 1
+    """
+    try:
+        res = supabase.table("users").select("study_streak", "last_active").eq("id", user_id).execute()
+        if not res.data:
+            return
+        
+        user = res.data[0]
+        streak = user.get("study_streak", 0)
+        last_active_str = user.get("last_active")
+        
+        now = datetime.datetime.utcnow()
+        today = now.date()
+        
+        if not last_active_str:
+            new_streak = 1
+        else:
+            # Parse ISO timestamp from Supabase
+            try:
+                # Handle both 'Z' and offset formats
+                ts = last_active_str.replace("Z", "+00:00")
+                last_active = datetime.datetime.fromisoformat(ts)
+                # Ensure it's UTC-comparable
+                if last_active.tzinfo:
+                    last_active = last_active.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            except Exception:
+                last_active = now - datetime.timedelta(days=2) # Default to break streak
+                
+            last_active_date = last_active.date()
+            diff = (today - last_active_date).days
+            
+            if diff <= 0:
+                new_streak = max(streak, 1) # Already active today (or future clock skew)
+            elif diff == 1:
+                new_streak = streak + 1 # Consecutive day
+            else:
+                new_streak = 1 # Streak broken
+                
+        supabase.table("users").update({
+            "study_streak": new_streak,
+            "last_active": now.isoformat()
+        }).eq("id", user_id).execute()
+        print(f"[Streak] Updated for {user_id}: {streak} -> {new_streak}")
+        
+    except Exception as e:
+        print(f"[Streak Warning] Failed to update streak for {user_id}: {e}")
 
 
 def serialize_doc(doc: dict) -> dict:
@@ -164,11 +253,8 @@ def login():
     user_id = str(user["id"])
     token = make_token(user_id, email)
 
-    # Update last_active
-    try:
-        supabase.table("users").update({"last_active": datetime.datetime.utcnow().isoformat()}).eq("id", user["id"]).execute()
-    except Exception as e:
-        print(f"[Supabase Warning] Failed to update last_active: {e}")
+    # Update last_active and streak
+    update_user_streak(user_id)
 
     return jsonify({
         "message": "Login successful",
@@ -341,11 +427,12 @@ def ask_question():
         }
         res = supabase.table("questions").insert(q_record).execute()
 
-        # Increment user question counter atomically via Supabase RPC
+        # Increment user question counter and streak
         try:
             supabase.rpc("increment_total_questions", {"row_id": request.user_id}).execute()
+            update_user_streak(request.user_id)
         except Exception as e:
-            print(f"[Supabase Warning] Atomic increment failed (ensure RPC exists): {e}")
+            print(f"[Supabase Warning] Post-ask updates failed: {e}")
 
         return jsonify({
             "status": "success",

@@ -28,10 +28,11 @@ echo.
 echo [+] Dependencies ready.
 echo [+] Starting Flask server on http://0.0.0.0:5000
 echo [+] Accessible at: http://10.174.238.113:5000 (Same Wi-Fi)
-echo [+] MongoDB: mongodb://localhost:27017/exammate
+echo [+] Database: Supabase (cxhxgtmedbldfmofortm.supabase.co)
+echo [+] AI Engine: Groq (llama-3.3-70b-versatile)
 echo.
-echo     Make sure MongoDB is running!
-echo     Make sure Groq API key in pipeline/generator.py is valid.
+echo     Make sure SUPABASE_URL and SUPABASE_KEY in .env are valid.
+echo     Make sure GROQ_API_KEY in .env is valid.
 echo.
 echo Press Ctrl+C to stop the server.
 echo ============================================

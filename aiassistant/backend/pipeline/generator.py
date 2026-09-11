@@ -100,7 +100,7 @@ def _groq_completion_with_fallback(messages, response_format=None, temperature=0
                 "temperature": temperature,
                 "max_tokens": max_tokens
             }
-            if response_format:
+            if response_format and not model_name.startswith("openai/gpt-oss"):
                 params["response_format"] = response_format
             
             return client.chat.completions.create(**params)
@@ -112,6 +112,17 @@ def _groq_completion_with_fallback(messages, response_format=None, temperature=0
                     print(f"[Groq] Primary model {model_name} rate limited. Entering 30s cooldown.")
                     _groq_cooldown_until = time.time() + 30
                 continue
+            elif response_format and "json_validate_failed" in err_msg:
+                print(f"[Groq] {model_name} rejected JSON mode. Retrying without response_format.")
+                try:
+                    params.pop("response_format", None)
+                    return client.chat.completions.create(**params)
+                except Exception as retry_error:
+                    retry_msg = str(retry_error).lower()
+                    if "429" in retry_msg or "rate limit" in retry_msg or "503" in retry_msg:
+                        continue
+                    print(f"[Groq Error] {model_name} plain JSON retry: {retry_error}")
+                    continue
             elif "model_not_found" in err_msg or "does not exist" in err_msg:
                 print(f"[Groq] Model {model_name} is unavailable. Trying the fallback model.")
                 continue
@@ -270,18 +281,19 @@ def generate_exam_answer(query, context, mode="detailed", marks=5):
     CONTEXT:
     {context[:3000]}
 
-    You MUST respond with a valid JSON matching this schema. Use university-level English.
+    You MUST respond with one complete valid JSON object matching this schema. Use university-level English.
+    Do not output markdown, comments, trailing commas, or the literal '...'.
     {{
       "title": "Topic Title",
       "introduction": "Intro paragraph",
       "definition": "Formal definition",
       "explanation": "Detailed theoretical explanation (This must be very long for 16-marks)",
       "working_process": "Step-by-step how it works",
-      "points": ["Key Point 1", "Key Point 2", ...],
+        "points": ["Key Point 1", "Key Point 2", "Key Point 3"],
       "example": "Real-world example",
-      "advantages": ["Advantage 1", "Advantage 2"],
-      "disadvantages": ["Disadvantage 1", "Disadvantage 2"],
-      "applications": ["Application 1", "Application 2"],
+        "advantages": ["Advantage 1", "Advantage 2", "Advantage 3"],
+        "disadvantages": ["Disadvantage 1", "Disadvantage 2", "Disadvantage 3"],
+        "applications": ["Application 1", "Application 2", "Application 3"],
       "conclusion": "Final academic summary",
       "image_prompt": "A professional whiteboard-style technical diagram or flow-chart description for {query}. Educational clarity, high-contrast, clear labels."
     }}

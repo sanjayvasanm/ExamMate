@@ -8,11 +8,15 @@ from groq import Groq
 
 # Configuration
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-_DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+_DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
+_GROQ_FALLBACK_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
 _configured_groq_model = os.environ.get("GROQ_MODEL", _DEFAULT_GROQ_MODEL)
 GROQ_MODEL = (
     _DEFAULT_GROQ_MODEL
-    if _configured_groq_model == "llama-3.3-70b-versatile"
+    if _configured_groq_model in {
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+    }
     else _configured_groq_model
 )
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
@@ -82,9 +86,9 @@ def _groq_completion_with_fallback(messages, response_format=None, temperature=0
     # If in cooldown, start with the fallback model
     current_time = time.time()
     if current_time < _groq_cooldown_until:
-        models_to_try = [_DEFAULT_GROQ_MODEL, GROQ_MODEL]
+        models_to_try = [_DEFAULT_GROQ_MODEL, *_GROQ_FALLBACK_MODELS, GROQ_MODEL]
     else:
-        models_to_try = [GROQ_MODEL, _DEFAULT_GROQ_MODEL]
+        models_to_try = [GROQ_MODEL, _DEFAULT_GROQ_MODEL, *_GROQ_FALLBACK_MODELS]
 
     models_to_try = list(dict.fromkeys(models_to_try))
     

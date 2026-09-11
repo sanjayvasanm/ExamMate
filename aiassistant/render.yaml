@@ -11,6 +11,8 @@ services:
         sync: false # Set this in Render Dashboard
       - key: GROQ_API_KEY
         sync: false # Set this in Render Dashboard
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
       - key: SUPABASE_URL
         sync: false # Set your Supabase URL here
       - key: SUPABASE_KEY

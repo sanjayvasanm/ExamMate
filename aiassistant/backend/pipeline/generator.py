@@ -8,7 +8,13 @@ from groq import Groq
 
 # Configuration
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+_DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+_configured_groq_model = os.environ.get("GROQ_MODEL", _DEFAULT_GROQ_MODEL)
+GROQ_MODEL = (
+    _DEFAULT_GROQ_MODEL
+    if _configured_groq_model == "llama-3.3-70b-versatile"
+    else _configured_groq_model
+)
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 # ── Diagram type selection helpers ────────────────────────────────────────────
@@ -76,9 +82,11 @@ def _groq_completion_with_fallback(messages, response_format=None, temperature=0
     # If in cooldown, start with the fallback model
     current_time = time.time()
     if current_time < _groq_cooldown_until:
-        models_to_try = ["llama-3.1-8b-instant", GROQ_MODEL]
+        models_to_try = [_DEFAULT_GROQ_MODEL, GROQ_MODEL]
     else:
-        models_to_try = [GROQ_MODEL, "llama-3.1-8b-instant"]
+        models_to_try = [GROQ_MODEL, _DEFAULT_GROQ_MODEL]
+
+    models_to_try = list(dict.fromkeys(models_to_try))
     
     for model_name in models_to_try:
         try:
@@ -99,6 +107,9 @@ def _groq_completion_with_fallback(messages, response_format=None, temperature=0
                 if model_name == GROQ_MODEL:
                     print(f"[Groq] Primary model {model_name} rate limited. Entering 30s cooldown.")
                     _groq_cooldown_until = time.time() + 30
+                continue
+            elif "model_not_found" in err_msg or "does not exist" in err_msg:
+                print(f"[Groq] Model {model_name} is unavailable. Trying the fallback model.")
                 continue
             else:
                 print(f"[Groq Error] {model_name}: {e}")

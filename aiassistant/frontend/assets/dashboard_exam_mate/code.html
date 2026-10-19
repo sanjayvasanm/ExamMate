@@ -23,6 +23,7 @@
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   nav a, nav div { cursor:pointer; }
 </style>
+<link rel="stylesheet" href="../app-shell.css"/>
 </head>
 <body class="bg-slate-50 font-body text-slate-900 min-h-screen">
 
@@ -40,6 +41,7 @@
       <button onclick="navigate('planner')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Planner</button>
       <button onclick="navigate('ask')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Ask AI</button>
       <button onclick="navigate('quiz')" class="text-slate-400 hover:text-white px-2 py-1 rounded">Quiz</button>
+      <button onclick="navigate('flashcards')" class="text-slate-400 hover:text-white px-2 py-1 rounded">Cards</button>
     </div>
     <div class="w-10 h-10 rounded-full bg-[#008A3F]/20 border border-[#008A3F]/30 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
       <span id="avatarInitial" class="text-[#008A3F] font-bold text-lg"></span>
@@ -109,16 +111,16 @@
       <span class="text-blue-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Start Chat <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
     </div>
 
-    <div onclick="navigate('history')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
+    <div onclick="navigate('flashcards')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
       <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-        <span class="material-symbols-outlined text-8xl">history</span>
+        <span class="material-symbols-outlined text-8xl">style</span>
       </div>
       <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
-        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">history</span>
+      <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">style</span>
       </div>
-      <h3 class="text-xl font-bold mb-2">View History</h3>
-      <p class="text-slate-500 mb-6">Access all your previous uploads and generated insights.</p>
-      <span class="text-purple-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Open Library <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+      <h3 class="text-xl font-bold mb-2">Revise with cards</h3>
+      <p class="text-slate-500 mb-6">Turn your study material into a spaced-revision deck.</p>
+      <span class="text-purple-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Open flashcards <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
     </div>
   </div>
 
@@ -150,24 +152,27 @@
                 <span class="text-slate-400">Questions Asked</span>
                 <span class="font-bold" id="statQuestions">0</span>
               </div>
-              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div class="h-full bg-[#008A3F] rounded-full transition-all duration-1000" id="statQBar" style="width:0%"></div>
-              </div>
+              <p class="text-xs text-slate-500">Total saved in your account</p>
             </div>
             <div>
               <div class="flex justify-between text-sm mb-2">
                 <span class="text-slate-400">Documents</span>
                 <span class="font-bold" id="statDocs">0</span>
               </div>
-              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-400 rounded-full transition-all duration-1000" id="statDBar" style="width:0%"></div>
-              </div>
+              <p class="text-xs text-slate-500">Private study library</p>
             </div>
             <div class="pt-2 border-t border-white/10">
               <div class="flex justify-between text-sm">
                 <span class="text-slate-400">Study Streak</span>
                 <span class="font-bold text-orange-400" id="statStreak">0 days</span>
               </div>
+            </div>
+            <div class="pt-2 border-t border-white/10">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-400">Quiz average</span>
+                <span class="font-bold text-emerald-300" id="statAverage">Not enough data</span>
+              </div>
+              <p id="weakTopic" class="mt-2 text-xs text-slate-500">Complete two quizzes to identify a revision focus.</p>
             </div>
           </div>
         </div>
@@ -187,6 +192,23 @@
         </p>
       </div>
     </div>
+  </div>
+
+  <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <section class="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
+      <div class="mb-5 flex items-center justify-between">
+        <div><p class="text-xs font-bold uppercase tracking-widest text-[#008A3F]">Next up</p><h2 class="mt-1 text-xl font-bold">Study planner</h2></div>
+        <button onclick="navigate('planner')" class="text-sm font-bold text-slate-400 hover:text-[#008A3F]">Open planner</button>
+      </div>
+      <div id="upcomingPlans" class="space-y-3"><p class="text-sm text-slate-400">Loading your deadlines...</p></div>
+    </section>
+    <section class="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
+      <div class="mb-5 flex items-center justify-between">
+        <div><p class="text-xs font-bold uppercase tracking-widest text-[#536dfe]">Practice</p><h2 class="mt-1 text-xl font-bold">Recent quiz attempts</h2></div>
+        <button onclick="navigate('quiz')" class="text-sm font-bold text-slate-400 hover:text-[#008A3F]">Practice quiz</button>
+      </div>
+      <div id="recentAttempts" class="space-y-3"><p class="text-sm text-slate-400">Loading your attempts...</p></div>
+    </section>
   </div>
 </main>
 
@@ -233,10 +255,25 @@ function setFallbackDashboard(message) {
   document.getElementById('statQuestions').textContent = '0';
   document.getElementById('statDocs').textContent = '0';
   document.getElementById('statStreak').textContent = '0 days';
-  document.getElementById('statQBar').style.width = '0%';
-  document.getElementById('statDBar').style.width = '0%';
   document.getElementById('activityList').innerHTML = message;
 }
+
+function renderPlanner(plans) {
+  const target = document.getElementById('upcomingPlans');
+  if (!plans || !plans.length) { target.innerHTML = '<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No deadlines yet. Add your next exam or assignment in the planner.</p>'; return; }
+  target.innerHTML = plans.map(plan => `<button onclick="navigate('planner')" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 text-left hover:border-emerald-200 hover:bg-emerald-50/40"><span class="min-w-0"><strong class="block truncate text-sm">${escapeHtml(plan.title)}</strong><span class="text-xs text-slate-500">${escapeHtml(plan.subject)} · ${escapeHtml(plan.exam_date)}</span></span><span class="material-symbols-outlined text-slate-300">arrow_forward</span></button>`).join('');
+}
+
+function renderAttempts(attempts) {
+  const target = document.getElementById('recentAttempts');
+  if (!attempts || !attempts.length) { target.innerHTML = '<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No quiz attempts yet. Generate a practice quiz when you are ready.</p>'; return; }
+  target.innerHTML = attempts.map(attempt => {
+    const percent = attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0;
+    return `<button onclick="navigate('quiz')" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 text-left hover:border-indigo-200 hover:bg-indigo-50/40"><span><strong class="block text-sm">${escapeHtml(attempt.score)} / ${escapeHtml(attempt.total)}</strong><span class="text-xs text-slate-500">${percent}% · ${new Date(attempt.created_at).toLocaleDateString()}</span></span><span class="text-sm font-bold text-[#536dfe]">${percent}%</span></button>`;
+  }).join('');
+}
+
+function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character])); }
 
 function setGreeting() {
   const hour = new Date().getHours();
@@ -269,13 +306,21 @@ async function loadDashboard() {
       return;
     }
     const data = await res.json();
+    renderPlanner(data.upcoming_plans);
+    renderAttempts(data.recent_quiz_attempts);
 
     // Stats
     document.getElementById('statQuestions').textContent = data.total_questions;
     document.getElementById('statDocs').textContent = data.total_documents;
     document.getElementById('statStreak').textContent = data.study_streak + ' days';
-    document.getElementById('statQBar').style.width = Math.min(data.total_questions * 5, 100) + '%';
-    document.getElementById('statDBar').style.width = Math.min(data.total_documents * 10, 100) + '%';
+    const analyticsResponse = await apiFetch(API + '/analytics', { headers: { Authorization: 'Bearer ' + token } });
+    if (analyticsResponse && analyticsResponse.ok) {
+      const analytics = await analyticsResponse.json();
+      document.getElementById('statAverage').textContent = analytics.average_score === null ? 'Not enough data' : analytics.average_score + '%';
+      document.getElementById('weakTopic').textContent = analytics.has_enough_data && analytics.weak_topics.length
+        ? 'Revise next: ' + analytics.weak_topics[0].topic + ' (' + analytics.weak_topics[0].percentage + '%)'
+        : 'Complete two quizzes to identify a revision focus.';
+    }
 
     // Activity list
     const list = document.getElementById('activityList');

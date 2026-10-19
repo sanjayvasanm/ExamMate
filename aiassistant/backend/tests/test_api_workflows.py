@@ -129,10 +129,14 @@ class FakeDatabase:
         self.rows = {
             "users": [],
             "documents": [],
-            "document_chunks": [],
+            "document_chunk": [],
             "questions": [],
             "quiz_sessions": [],
             "quiz_attempts": [],
+            "study_plans": [],
+            "flashcards": [],
+            "study_tasks": [],
+            "focus_sessions": [],
         }
         self.storage = FakeStorage()
 
@@ -177,7 +181,7 @@ class ApiWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(self.db.rows["documents"]), 1)
-        self.assertEqual(len(self.db.rows["document_chunks"]), 1)
+        self.assertEqual(len(self.db.rows["document_chunk"]), 1)
         self.assertTrue(self.db.rows["documents"][0]["storage_path"].startswith("user-a/"))
 
     def test_document_delete_requires_ownership_and_removes_storage(self):
@@ -219,6 +223,118 @@ class ApiWorkflowTests(unittest.TestCase):
         response = self.client.get("/api/quizzes/attempts", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json["attempts"]), 1)
+
+    def test_study_plan_update_validates_ownership_and_fields(self):
+        plan_id = str(uuid.uuid4())
+        self.db.rows["study_plans"].append({
+            "id": plan_id, "user_id": "user-a", "title": "Old",
+            "subject": "Math", "exam_date": "2026-11-01",
+            "completed": False,
+        })
+        response = self.client.patch(
+            f"/api/plans/{plan_id}",
+            headers=self.headers,
+            json={"title": "New plan", "subject": "Physics", "exam_date": "2026-11-03"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.db.rows["study_plans"][0]["title"], "New plan")
+        response = self.client.patch(
+            f"/api/plans/{plan_id}",
+            headers={"Authorization": f"Bearer {app_module.make_token('user-b', 'b@example.com')}"},
+            json={"completed": True},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    @patch.object(app_module, "generate_flashcards", return_value={
+        "cards": [{"front": "What is a vector?", "back": "A quantity with magnitude and direction."}],
+    })
+    def test_flashcard_generation_and_review_require_ownership(self, _generate):
+        response = self.client.post(
+            "/api/flashcards",
+            headers=self.headers,
+            json={"topic": "Vectors", "count": 3},
+        )
+        self.assertEqual(response.status_code, 201)
+        card_id = response.json["cards"][0]["id"]
+        response = self.client.post(
+            f"/api/flashcards/{card_id}/review",
+            headers=self.headers,
+            json={"rating": "good"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.db.rows["flashcards"][0]["last_rating"], "good")
+
+        other_token = app_module.make_token("user-b", "b@example.com")
+        response = self.client.post(
+            f"/api/flashcards/{card_id}/review",
+            headers={"Authorization": f"Bearer {other_token}"},
+            json={"rating": "easy"},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_analytics_reports_real_attempts_only(self):
+        self.db.rows["quiz_attempts"].extend([
+            {"user_id": "user-a", "score": 1, "total": 2, "quiz": {"title": "Algebra"}},
+            {"user_id": "user-a", "score": 2, "total": 2, "quiz": {"title": "Algebra"}},
+            {"user_id": "user-b", "score": 0, "total": 2, "quiz": {"title": "Other"}},
+        ])
+        response = self.client.get("/api/analytics", headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["attempts"], 2)
+        self.assertEqual(response.json["average_score"], 75)
+        self.assertEqual(response.json["weak_topics"][0]["topic"], "Algebra")
+
+    def test_study_tasks_can_be_completed_and_are_user_scoped(self):
+        response = self.client.post(
+            "/api/tasks",
+            headers=self.headers,
+            json={"title": "Review vectors", "due_date": "2026-11-01", "priority": "high"},
+        )
+        self.assertEqual(response.status_code, 201)
+        task_id = response.json["task"]["id"]
+        response = self.client.patch(
+            f"/api/tasks/{task_id}",
+            headers=self.headers,
+            json={"completed": True},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.db.rows["study_tasks"][0]["completed"])
+        other_token = app_module.make_token("user-b", "b@example.com")
+        response = self.client.delete(
+            f"/api/tasks/{task_id}",
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_focus_session_is_saved_only_through_authenticated_api(self):
+        response = self.client.post(
+            "/api/focus-sessions",
+            headers=self.headers,
+            json={"subject": "Physics", "work_minutes": 25},
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(self.db.rows["focus_sessions"][0]["work_minutes"], 25)
+        response = self.client.get("/api/focus-sessions", headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json["sessions"]), 1)
+
+    def test_retry_wrong_questions_creates_owned_session(self):
+        attempt_id = str(uuid.uuid4())
+        self.db.rows["quiz_attempts"].append({
+            "id": attempt_id,
+            "user_id": "user-a",
+            "quiz": {"title": "Algebra", "questions": [
+                {"question": "1+1?", "options": ["1", "2", "3", "4"], "answer": "B", "explanation": "Two."},
+                {"question": "2+2?", "options": ["2", "3", "4", "5"], "answer": "C", "explanation": "Four."},
+            ]},
+            "answers": ["B", "A"],
+        })
+        response = self.client.post(
+            f"/api/quizzes/attempts/{attempt_id}/retry-wrong",
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json["quiz"]["questions"]), 1)
 
 
 if __name__ == "__main__":

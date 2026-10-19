@@ -50,6 +50,12 @@ pip install -r requirements.txt
 python app.py
 ```
 
+The backend exposes `GET /api/health` for Render health checks. Set
+`CORS_ORIGINS` to the exact deployed frontend origin in production (a
+comma-separated list is supported by Flask-CORS), and keep `JWT_SECRET`,
+`SUPABASE_URL`, `SUPABASE_KEY`, and `GROQ_API_KEY` in Render environment
+variables rather than source control.
+
 ### 3. Frontend / Mobile Setup
 To connect your physical phone to your local PC:
 1. Find your PC's IP (`ipconfig` on Windows).
@@ -63,6 +69,30 @@ To connect your physical phone to your local PC:
    cd frontend
    flutter build apk
    ```
+
+### 4. Web deployment
+
+The supported web frontend is the static HTML application bundled under
+`frontend/assets/`. Deploy `frontend/` to Vercel; `frontend/vercel.json`
+rewrites the public routes to those assets. Set `window.EXAM_MATE_API_URL` (or
+use the existing `em_api_override` developer setting) when a deployment needs a
+different API origin. Deploy the Flask service with the checked-in
+`aiassistant/render.yaml`; the Dockerfile uses Render's `$PORT` and Gunicorn.
+
+After applying `backend/schema.sql` to the existing Supabase project, the
+planner is available at `/api/plans`. The migration is additive and does not
+replace existing tables or data.
+
+### 5. Flashcards and analytics migration
+
+Review and run `backend/migrations/20261019_flashcards_and_tasks.sql` manually
+in the Supabase SQL editor, then run the read-only checks in
+`backend/migrations/verify_flashcards_and_tasks.sql`. This migration adds
+server-managed flashcards/review scheduling and optional planner metadata; it
+does not drop or rewrite existing records. The API routes are `/api/flashcards`, `/api/flashcards/<id>/review`,
+`/api/analytics`, `/api/tasks`, `/api/quizzes/attempts/<id>/retry-wrong`, and
+`/api/focus-sessions`. The focus page is bundled at
+`frontend/assets/focus_exam_mate/code.html`.
 
 ## 📜 License
 This project is licensed under the MIT License - see the LICENSE file for details.

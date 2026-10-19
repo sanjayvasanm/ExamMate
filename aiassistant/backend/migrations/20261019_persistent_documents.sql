@@ -12,6 +12,55 @@ alter table public.documents
     add column if not exists storage_bucket text default 'exam-documents',
     add column if not exists storage_path text;
 
+create table if not exists public.study_plans (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    title text not null,
+    subject text not null,
+    exam_date date not null,
+    notes text not null default '',
+    completed boolean not null default false,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists study_plans_user_exam_date_idx
+    on public.study_plans(user_id, exam_date);
+
+create table if not exists public.quiz_sessions (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    document_id uuid references public.documents(id) on delete set null,
+    quiz jsonb not null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists quiz_sessions_user_created_idx
+    on public.quiz_sessions(user_id, created_at desc);
+
+create table if not exists public.quiz_attempts (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    document_id uuid references public.documents(id) on delete set null,
+    quiz jsonb not null,
+    answers jsonb not null,
+    score integer not null check (score >= 0),
+    total integer not null check (total > 0),
+    created_at timestamptz not null default now()
+);
+
+create index if not exists quiz_attempts_user_created_idx
+    on public.quiz_attempts(user_id, created_at desc);
+
+do $$
+begin
+    if to_regclass('public.document_chunk') is null
+       and to_regclass('public.document_chunks') is not null then
+        raise exception
+            'Found legacy public.document_chunks; inspect it and set DOCUMENT_CHUNKS_TABLE or migrate deliberately before applying this migration';
+    end if;
+end;
+$$;
+
 do $$
 begin
     if not exists (
@@ -26,7 +75,7 @@ begin
 end;
 $$;
 
-create table if not exists public.document_chunks (
+create table if not exists public.document_chunk (
     id uuid primary key default gen_random_uuid(),
     document_id uuid not null,
     user_id uuid not null,
@@ -34,7 +83,7 @@ create table if not exists public.document_chunks (
     content text not null,
     created_at timestamptz not null default now(),
     unique (document_id, chunk_index),
-    constraint document_chunks_document_owner_fkey
+    constraint document_chunk_document_owner_fkey
         foreign key (document_id, user_id)
         references public.documents(id, user_id)
         on delete cascade
@@ -45,11 +94,11 @@ begin
     if not exists (
         select 1
         from pg_constraint
-        where conname = 'document_chunks_document_owner_fkey'
-          and conrelid = 'public.document_chunks'::regclass
+        where conname = 'document_chunk_document_owner_fkey'
+          and conrelid = 'public.document_chunk'::regclass
     ) then
-        alter table public.document_chunks
-            add constraint document_chunks_document_owner_fkey
+        alter table public.document_chunk
+            add constraint document_chunk_document_owner_fkey
             foreign key (document_id, user_id)
             references public.documents(id, user_id)
             on delete cascade;
@@ -57,17 +106,8 @@ begin
 end;
 $$;
 
-create index if not exists document_chunks_user_document_idx
-    on public.document_chunks(user_id, document_id, chunk_index);
-
-alter table public.document_chunks enable row level security;
-drop policy if exists "Document chunks are server managed" on public.document_chunks;
-create policy "Document chunks are server managed"
-    on public.document_chunks
-    for all
-    to anon, authenticated
-    using (false)
-    with check (false);
+create index if not exists document_chunk_user_document_idx
+    on public.document_chunk(user_id, document_id, chunk_index);
 
 -- The application accesses Storage through the trusted Flask service key.
 -- These policies keep the private bucket closed to direct public clients.
@@ -92,7 +132,7 @@ begin
         'study_plans',
         'quiz_sessions',
         'quiz_attempts',
-        'document_chunks'
+        'document_chunk'
     ]
     loop
         if to_regclass(format('public.%I', table_name)) is not null then
@@ -102,3 +142,38 @@ begin
     end loop;
 end;
 $$;
+
+-- Custom Flask JWTs are not Supabase Auth JWTs, so auth.uid() policies would
+-- not authorize this application. The service-role client is the only data
+-- access path; direct API roles are denied by both grants and RLS.
+drop policy if exists "Document chunks are server managed" on public.document_chunk;
+create policy "Document chunks are server managed"
+    on public.document_chunk
+    for all
+    to anon, authenticated
+    using (false)
+    with check (false);
+
+drop policy if exists "Study plans are server managed" on public.study_plans;
+create policy "Study plans are server managed"
+    on public.study_plans
+    for all
+    to anon, authenticated
+    using (false)
+    with check (false);
+
+drop policy if exists "Quiz sessions are server managed" on public.quiz_sessions;
+create policy "Quiz sessions are server managed"
+    on public.quiz_sessions
+    for all
+    to anon, authenticated
+    using (false)
+    with check (false);
+
+drop policy if exists "Quiz attempts are server managed" on public.quiz_attempts;
+create policy "Quiz attempts are server managed"
+    on public.quiz_attempts
+    for all
+    to anon, authenticated
+    using (false)
+    with check (false);

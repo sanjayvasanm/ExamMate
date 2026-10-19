@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Exam Mate - Practice Quiz</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../app-shell.css">
 </head>
 <body class="min-h-screen bg-slate-50 pb-24">
   <header class="sticky top-0 z-10 flex justify-between bg-[#0D0C22] px-6 py-4 text-white">
@@ -21,7 +22,12 @@
     <h1 class="text-3xl font-black">Practice quiz</h1>
     <p class="mt-2 text-slate-500">Generate and save a multiple-choice attempt from your scoped study material.</p>
     <form id="generate" class="mt-7 rounded-2xl bg-white p-5 shadow-sm">
-      <label class="block font-bold">Topic
+      <label class="block font-bold">Study scope
+        <select id="document" class="mt-2 w-full rounded-xl border p-3">
+          <option value="">All uploaded material</option>
+        </select>
+      </label>
+      <label class="mt-4 block font-bold">Topic
         <input id="topic" required maxlength="160" placeholder="e.g. Operating systems" class="mt-2 w-full rounded-xl border p-3">
       </label>
       <button class="mt-4 rounded-xl bg-[#008A3F] px-5 py-3 font-bold text-white">Generate quiz</button>
@@ -68,12 +74,24 @@
           attemptsElement.textContent = 'No quiz attempts yet. Generate your first quiz above.';
           return;
         }
-        attemptsElement.innerHTML = data.attempts.map((attempt) =>
-          '<div class="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-3">' +
-          '<span>' + escapeHtml(new Date(attempt.created_at).toLocaleDateString()) + '</span>' +
-          '<strong class="text-slate-900">' + escapeHtml(attempt.score) + ' / ' +
-          escapeHtml(attempt.total) + '</strong></div>'
-        ).join('');
+        attemptsElement.innerHTML = data.attempts.map((attempt, index) => {
+          const percent = attempt.total ? Math.round(attempt.score / attempt.total * 100) : 0;
+          const questions = (attempt.quiz && attempt.quiz.questions) || [];
+          const answers = attempt.answers || [];
+          const review = questions.map((question, questionIndex) => {
+            const selected = answers[questionIndex] || '—';
+            const correct = question.answer || '—';
+            return '<li>' + escapeHtml(question.question) + '<span class="ml-2 font-semibold ' +
+              (selected === correct ? 'text-emerald-700' : 'text-rose-600') + '">' +
+              escapeHtml(selected) + ' / ' + escapeHtml(correct) + '</span></li>';
+          }).join('');
+          return '<details class="rounded-xl border border-slate-100 p-3"><summary class="flex cursor-pointer items-center justify-between gap-4">' +
+            '<span>' + escapeHtml(new Date(attempt.created_at).toLocaleDateString()) + '</span>' +
+            '<strong class="text-slate-900">' + escapeHtml(attempt.score) + ' / ' +
+            escapeHtml(attempt.total) + ' (' + percent + '%)</strong></summary>' +
+            (review ? '<ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-slate-600">' + review + '</ol>' : '') +
+            '</details>';
+        }).join('');
       } catch (error) {
         attemptsElement.textContent = error.message;
         attemptsElement.className = 'mt-4 rounded-xl bg-red-50 p-3 text-red-700';
@@ -82,6 +100,33 @@
 
     document.getElementById('refreshAttempts').onclick = loadAttempts;
     loadAttempts();
+
+    async function loadDocuments() {
+      const response = await apiFetch(API + '/documents');
+      if (!response || !response.ok) return;
+      const data = await response.json().catch(() => ({}));
+      document.getElementById('document').insertAdjacentHTML('beforeend',
+        (data.documents || []).map(document => '<option value="' + escapeHtml(document.doc_id) + '">' +
+          escapeHtml(document.filename) + '</option>').join(''));
+    }
+    loadDocuments();
+
+    function renderQuiz(data) {
+      current = data;
+      quizElement.innerHTML =
+        '<h2 class="text-xl font-bold">' + escapeHtml(data.quiz.title) + '</h2>' +
+        data.quiz.questions.map((question, index) =>
+          '<article class="rounded-2xl bg-white p-5 shadow-sm">' +
+          '<p class="font-bold">' + (index + 1) + '. ' + escapeHtml(question.question) + '</p>' +
+          '<div class="mt-3 grid gap-2">' +
+          question.options.map((option, optionIndex) =>
+            '<label class="rounded-lg border p-3"><input required type="radio" name="q' +
+            index + '" value="' + String.fromCharCode(65 + optionIndex) +
+            '" class="mr-2">' + escapeHtml(option) + '</label>'
+          ).join('') + '</div></article>'
+        ).join('') +
+        '<button onclick="submitQuiz()" class="rounded-xl bg-[#0D0C22] px-5 py-3 font-bold text-white">Submit attempt</button>';
+    }
 
     document.getElementById('generate').onsubmit = async (event) => {
       event.preventDefault();
@@ -93,24 +138,15 @@
         const response = await apiFetch(API + '/quizzes/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: document.getElementById('topic').value, count: 5 })
+          body: JSON.stringify({
+            topic: document.getElementById('topic').value,
+            document_id: document.getElementById('document').value || null,
+            count: 5
+          })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Generation failed');
-        current = data;
-        quizElement.innerHTML =
-          '<h2 class="text-xl font-bold">' + escapeHtml(data.quiz.title) + '</h2>' +
-          data.quiz.questions.map((question, index) =>
-            '<article class="rounded-2xl bg-white p-5 shadow-sm">' +
-            '<p class="font-bold">' + (index + 1) + '. ' + escapeHtml(question.question) + '</p>' +
-            '<div class="mt-3 grid gap-2">' +
-            question.options.map((option, optionIndex) =>
-              '<label class="rounded-lg border p-3"><input required type="radio" name="q' +
-              index + '" value="' + String.fromCharCode(65 + optionIndex) +
-              '" class="mr-2">' + escapeHtml(option) + '</label>'
-            ).join('') + '</div></article>'
-          ).join('') +
-          '<button onclick="submitQuiz()" class="rounded-xl bg-[#0D0C22] px-5 py-3 font-bold text-white">Submit attempt</button>';
+        renderQuiz(data);
       } catch (error) {
         resultElement.textContent = error.message;
         resultElement.className = 'mt-5 rounded-xl bg-red-50 p-4 text-red-700';
@@ -141,8 +177,26 @@
         resultElement.className = 'mt-5 rounded-xl bg-red-50 p-4 text-red-700';
         return;
       }
-      resultElement.textContent = 'Score: ' + data.score + ' / ' + data.total + '. Attempt saved.';
+      const attempt = data.attempt || {};
+      const review = current.quiz.questions.map((question, index) => {
+        const correct = answers[index] === question.answer;
+        return '<li class="' + (correct ? 'text-emerald-700' : 'text-rose-700') + '">' +
+          (correct ? 'Correct: ' : 'Review: ') + escapeHtml(question.explanation || 'Compare your answer with the correct option.') +
+          (!correct ? ' Correct option: ' + escapeHtml(question.answer) : '') + '</li>';
+      }).join('');
+      resultElement.innerHTML = '<p>Score: ' + data.score + ' / ' + data.total + '. Attempt saved.</p>' +
+        '<ol class="mt-3 list-decimal space-y-1 pl-5 text-sm font-normal">' + review + '</ol>' +
+        (attempt.id && data.score < data.total ? '<button onclick="retryWrong(\'' + attempt.id + '\')" class="mt-4 rounded-xl bg-[#0D0C22] px-4 py-2 text-sm font-bold text-white">Retry incorrect answers</button>' : '');
       resultElement.className = 'mt-5 rounded-xl bg-emerald-50 p-4 font-bold text-emerald-800';
+    }
+
+    async function retryWrong(attemptId) {
+      const response = await apiFetch(API + '/quizzes/attempts/' + encodeURIComponent(attemptId) + '/retry-wrong', { method: 'POST' });
+      const data = response ? await response.json().catch(() => ({})) : {};
+      if (!response || !response.ok) { resultElement.textContent = data.error || 'Could not start retry'; return; }
+      renderQuiz(data);
+      resultElement.textContent = 'Retrying only the questions you missed.';
+      resultElement.className = 'mt-5 rounded-xl bg-indigo-50 p-4 text-indigo-800';
     }
   </script>
 </body>

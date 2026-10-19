@@ -21,6 +21,7 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   input[type=file] { display:none; }
 </style>
+<link rel="stylesheet" href="../app-shell.css"/>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900">
 
@@ -68,9 +69,16 @@
 
       <!-- Upload List -->
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-        <h3 class="font-bold text-[#0D0C22] mb-6 flex items-center gap-2">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h3 class="font-bold text-[#0D0C22] flex items-center gap-2">
           <span class="material-symbols-outlined text-[#008A3F]">folder_open</span> Your Documents
-        </h3>
+          </h3>
+          <span id="docFilterCount" class="text-xs font-semibold text-slate-400"></span>
+        </div>
+        <div class="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+          <label class="relative"><span class="sr-only">Search documents</span><span class="material-symbols-outlined absolute left-3 top-2.5 text-lg text-slate-400">search</span><input id="docSearch" class="w-full rounded-xl border px-10 py-2.5 text-sm" placeholder="Search by filename or type"></label>
+          <label><span class="sr-only">Sort documents</span><select id="docSort" class="w-full rounded-xl border px-3 py-2.5 text-sm"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A-Z</option></select></label>
+        </div>
         <div id="docList" class="space-y-3">
           <div class="text-center py-6 text-slate-400 text-sm">Loading your documents...</div>
         </div>
@@ -202,13 +210,37 @@ async function loadDocs() {
     document.getElementById('docCount').textContent = docs.length;
     document.getElementById('storageBar').style.width = Math.min(docs.length * 10, 100) + '%';
 
+    window.examMateDocuments = docs;
+    renderDocs();
+  } catch(e) {
+    showToast('Could not load documents', 'error');
+    document.getElementById('docList').innerHTML = '<div class="text-center py-4 text-slate-400 text-sm">Could not load documents.</div>';
+  }
+}
+
+function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character])); }
+function renderDocs() {
+    const docs = window.examMateDocuments || [];
+    const query = (document.getElementById('docSearch').value || '').trim().toLowerCase();
+    const sort = document.getElementById('docSort').value;
+    const filtered = docs.filter(doc => (doc.filename + ' ' + doc.file_type).toLowerCase().includes(query)).sort((a, b) => {
+      if (sort === 'name') return a.filename.localeCompare(b.filename);
+      const direction = sort === 'oldest' ? 1 : -1;
+      return direction * (new Date(a.uploaded_at) - new Date(b.uploaded_at));
+    });
+    document.getElementById('docFilterCount').textContent = query ? `${filtered.length} of ${docs.length}` : `${docs.length} total`;
+    const list = document.getElementById('docList');
     if (docs.length === 0) {
       list.innerHTML = '<div class="text-center py-6 text-slate-400 text-sm">No documents yet. Upload your first one!</div>';
       return;
     }
+    if (!filtered.length) {
+      list.innerHTML = '<div class="text-center py-8"><span class="material-symbols-outlined text-3xl text-slate-300">search_off</span><p class="mt-2 text-sm text-slate-500">No documents match that search.</p></div>';
+      return;
+    }
 
     const icons = {PDF:'picture_as_pdf text-red-500 bg-red-50', DOCX:'description text-blue-500 bg-blue-50', PPTX:'slideshow text-orange-500 bg-orange-50', PPT:'slideshow text-orange-500 bg-orange-50', TXT:'text_snippet text-slate-500 bg-slate-100', PNG:'image text-purple-500 bg-purple-50', JPG:'image text-purple-500 bg-purple-50'};
-    list.innerHTML = docs.map(d => {
+    list.innerHTML = filtered.map(d => {
       const ic = icons[d.file_type] || 'attach_file text-slate-500 bg-slate-100';
       const [iconName, ...icClasses] = ic.split(' ');
       const date = new Date(d.uploaded_at).toLocaleDateString();
@@ -219,14 +251,14 @@ async function loadDocs() {
             <span class="material-symbols-outlined text-2xl">${iconName}</span>
           </div>
           <div class="flex-1 min-w-0">
-            <h4 class="font-bold text-sm text-[#0D0C22] truncate">${d.filename}</h4>
+            <h4 class="font-bold text-sm text-[#0D0C22] truncate">${escapeHtml(d.filename)}</h4>
             <div class="flex gap-3 text-[10px] text-slate-400 uppercase tracking-wide mt-0.5">
               <span>${d.file_type} • ${d.file_size_mb}MB</span>
               <span>${date}</span>
               ${status}
             </div>
           </div>
-          <button onclick="askAboutDoc('${d.doc_id}','${d.filename}')" class="shrink-0 p-2 rounded-lg bg-emerald-50 text-[#008A3F] hover:bg-emerald-100 transition-colors" title="Ask about this doc">
+          <button onclick="askAboutDoc('${d.doc_id}',decodeURIComponent('${encodeURIComponent(d.filename)}'))" class="shrink-0 p-2 rounded-lg bg-emerald-50 text-[#008A3F] hover:bg-emerald-100 transition-colors" title="Ask about this doc">
             <span class="material-symbols-outlined text-sm">psychology</span>
           </button>
           <button onclick="deleteDoc('${d.doc_id}')" class="shrink-0 p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Delete document">
@@ -234,10 +266,6 @@ async function loadDocs() {
           </button>
         </div>`;
     }).join('');
-  } catch(e) {
-    showToast('Could not load documents', 'error');
-    document.getElementById('docList').innerHTML = '<div class="text-center py-4 text-slate-400 text-sm">Could not load documents.</div>';
-  }
 }
 
 function askAboutDoc(docId, filename) {
@@ -260,6 +288,8 @@ async function deleteDoc(docId) {
 }
 
 loadDocs();
+document.getElementById('docSearch').addEventListener('input', renderDocs);
+document.getElementById('docSort').addEventListener('change', renderDocs);
 </script>
 </body>
 </html>

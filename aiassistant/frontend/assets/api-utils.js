@@ -70,7 +70,9 @@ function navigate(page) {
     login: 'login_exam_mate/code.html',
     signup: 'signup_exam_mate/code.html',
     planner: 'planner_exam_mate/code.html',
-    quiz: 'quiz_exam_mate/code.html'
+    quiz: 'quiz_exam_mate/code.html',
+    flashcards: 'flashcards_exam_mate/code.html',
+    focus: 'focus_exam_mate/code.html'
   };
   // If we are already in a subdirectory (which basically all screens are), go up one level
   const currentPath = window.location.pathname;

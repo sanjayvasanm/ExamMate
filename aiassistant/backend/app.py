@@ -22,7 +22,7 @@ from storage import STORAGE_BUCKET, delete_document, download_document, upload_d
 # ── Pipeline imports ──────────────────────────────────────────────────────────
 from pipeline.extractor import extract_text_hybrid, chunk_content
 from pipeline.retriever import retriever_instance, get_context
-from pipeline.generator import generate_exam_answer, generate_quiz, detect_keywords, fix_mermaid_diagram
+from pipeline.generator import generate_exam_answer, generate_quiz, generate_flashcards, detect_keywords, fix_mermaid_diagram
 
 # ── App config ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -55,6 +55,7 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+DOCUMENT_CHUNKS_TABLE = os.environ.get("DOCUMENT_CHUNKS_TABLE", "document_chunk")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     import sys
@@ -111,7 +112,7 @@ def _storage_path(user_id: str, document_id: str, filename: str) -> str:
 
 
 def _load_persistent_context(user_id: str, document_id: str | None = None) -> None:
-    query = supabase.table("document_chunks").select("document_id,chunk_index,content").eq("user_id", user_id)
+    query = supabase.table(DOCUMENT_CHUNKS_TABLE).select("document_id,chunk_index,content").eq("user_id", user_id)
     if document_id:
         query = query.eq("document_id", document_id)
     rows = query.order("document_id").order("chunk_index").execute().data or []
@@ -405,7 +406,7 @@ def upload_file():
     try:
         supabase.table("documents").insert(doc_record).execute()
         if chunk_records:
-            supabase.table("document_chunks").insert(chunk_records).execute()
+            supabase.table(DOCUMENT_CHUNKS_TABLE).insert(chunk_records).execute()
             retriever_instance.sync(
                 [{"text": row["content"]} for row in chunk_records],
                 user_id=request.user_id,
@@ -417,7 +418,7 @@ def upload_file():
         except Exception as cleanup_error:
             print(f"[Storage Warning] Database rollback cleanup failed: {cleanup_error}")
         try:
-            supabase.table("document_chunks").delete().eq("document_id", doc_id).eq("user_id", request.user_id).execute()
+            supabase.table(DOCUMENT_CHUNKS_TABLE).delete().eq("document_id", doc_id).eq("user_id", request.user_id).execute()
             supabase.table("documents").delete().eq("id", doc_id).eq("user_id", request.user_id).execute()
         except Exception as cleanup_error:
             print(f"[Database Warning] Upload rollback cleanup failed: {cleanup_error}")
@@ -613,8 +614,185 @@ def submit_quiz_attempt():
 @app.route("/api/quizzes/attempts", methods=["GET"])
 @token_required
 def list_quiz_attempts():
-    result=supabase.table("quiz_attempts").select("id,score,total,created_at,document_id").eq("user_id",request.user_id).order("created_at",desc=True).limit(20).execute()
+    result=supabase.table("quiz_attempts").select("id,score,total,created_at,document_id,quiz,answers").eq("user_id",request.user_id).order("created_at",desc=True).limit(20).execute()
     return jsonify({"attempts":result.data or []})
+
+@app.route("/api/quizzes/attempts/<attempt_id>/retry-wrong", methods=["POST"])
+@token_required
+def retry_wrong_questions(attempt_id):
+    try:
+        uuid.UUID(str(attempt_id))
+    except ValueError:
+        return jsonify({"error": "Invalid quiz attempt"}), 400
+    result = (
+        supabase.table("quiz_attempts")
+        .select("quiz,answers,document_id")
+        .eq("id", attempt_id)
+        .eq("user_id", request.user_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Quiz attempt not found"}), 404
+    attempt = result.data[0]
+    questions = attempt.get("quiz", {}).get("questions") or []
+    answers = attempt.get("answers") or []
+    wrong = [
+        question for question, answer in zip(questions, answers)
+        if str(answer).upper() != str(question.get("answer", "")).upper()
+    ]
+    if not wrong:
+        return jsonify({"error": "This attempt has no incorrect answers to retry"}), 400
+    quiz = {"title": "Retry incorrect answers", "questions": wrong}
+    session = supabase.table("quiz_sessions").insert({
+        "user_id": request.user_id,
+        "document_id": attempt.get("document_id"),
+        "quiz": quiz,
+    }).execute()
+    return jsonify({
+        "quiz": quiz,
+        "document_id": attempt.get("document_id"),
+        "session_id": str(session.data[0]["id"]) if session.data else None,
+    })
+
+
+@app.route("/api/analytics", methods=["GET"])
+@token_required
+def get_analytics():
+    attempts = supabase.table("quiz_attempts").select("score,total,quiz,created_at").eq("user_id", request.user_id).order("created_at", desc=True).limit(100).execute().data or []
+    total_questions = sum(int(attempt.get("total") or 0) for attempt in attempts)
+    total_score = sum(int(attempt.get("score") or 0) for attempt in attempts)
+    topic_stats = {}
+    for attempt in attempts:
+        quiz = attempt.get("quiz") or {}
+        topic = str(quiz.get("title") or "General revision")
+        stat = topic_stats.setdefault(topic, {"topic": topic, "score": 0, "total": 0, "attempts": 0})
+        stat["score"] += int(attempt.get("score") or 0)
+        stat["total"] += int(attempt.get("total") or 0)
+        stat["attempts"] += 1
+    topics = [
+        {**stat, "percentage": round(stat["score"] / stat["total"] * 100) if stat["total"] else 0}
+        for stat in topic_stats.values()
+    ]
+    topics.sort(key=lambda item: (item["percentage"], -item["attempts"]))
+    return jsonify({
+        "attempts": len(attempts),
+        "average_score": round(total_score / total_questions * 100) if total_questions else None,
+        "weak_topics": topics[:5],
+        "has_enough_data": len(attempts) >= 2,
+    })
+
+
+@app.route("/api/flashcards", methods=["GET", "POST"])
+@token_required
+def flashcards():
+    if request.method == "GET":
+        result = (
+            supabase.table("flashcards")
+            .select("*")
+            .eq("user_id", request.user_id)
+            .order("created_at", desc=True)
+            .limit(100)
+            .execute()
+        )
+        return jsonify({"cards": result.data or []})
+
+    data = request.get_json(silent=True) or {}
+    document_id = data.get("document_id")
+    topic = (data.get("topic") or "General revision").strip()[:160]
+    try:
+        count = max(3, min(int(data.get("count", 10)), 20))
+        if document_id:
+            uuid.UUID(str(document_id))
+            owned = supabase.table("documents").select("id").eq("id", str(document_id)).eq("user_id", request.user_id).limit(1).execute()
+            if not owned.data:
+                return jsonify({"error": "Document not found"}), 404
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid flashcard count or document ID"}), 400
+
+    _load_persistent_context(request.user_id, document_id)
+    context = get_context(topic, user_id=request.user_id, document_id=document_id)
+    try:
+        generated = generate_flashcards(topic, context, count)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+
+    records = [{
+        "user_id": request.user_id,
+        "document_id": document_id or None,
+        "front": card["front"],
+        "back": card["back"],
+        "topic": topic,
+        "next_review_at": datetime.datetime.utcnow().isoformat(),
+        "interval_days": 0,
+        "ease_factor": 2.5,
+    } for card in generated["cards"]]
+    result = supabase.table("flashcards").insert(records).execute()
+    return jsonify({"cards": result.data or records}), 201
+
+
+@app.route("/api/flashcards/<card_id>/review", methods=["POST"])
+@token_required
+def review_flashcard(card_id):
+    try:
+        uuid.UUID(str(card_id))
+    except ValueError:
+        return jsonify({"error": "Invalid flashcard ID"}), 400
+    rating = (request.get_json(silent=True) or {}).get("rating")
+    if rating not in {"again", "hard", "good", "easy"}:
+        return jsonify({"error": "Rating must be again, hard, good, or easy"}), 400
+    card_result = supabase.table("flashcards").select("interval_days,ease_factor").eq("id", card_id).eq("user_id", request.user_id).limit(1).execute()
+    if not card_result.data:
+        return jsonify({"error": "Flashcard not found"}), 404
+    card = card_result.data[0]
+    interval = int(card.get("interval_days") or 0)
+    ease = float(card.get("ease_factor") or 2.5)
+    if rating == "again":
+        interval = 0
+        ease = max(1.3, ease - 0.2)
+    else:
+        multipliers = {"hard": 1.2, "good": ease, "easy": ease + 0.3}
+        interval = max(1, round(max(interval, 1) * multipliers[rating]))
+        ease = max(1.3, ease + (0.15 if rating == "easy" else -0.05 if rating == "hard" else 0))
+    next_review = datetime.datetime.utcnow() + datetime.timedelta(days=interval)
+    updated = supabase.table("flashcards").update({
+        "interval_days": interval,
+        "ease_factor": ease,
+        "last_rating": rating,
+        "next_review_at": next_review.isoformat(),
+        "reviewed_at": datetime.datetime.utcnow().isoformat(),
+    }).eq("id", card_id).eq("user_id", request.user_id).execute()
+    if not updated.data:
+        return jsonify({"error": "Flashcard could not be updated"}), 500
+    return jsonify({"card": updated.data[0]})
+
+
+@app.route("/api/focus-sessions", methods=["GET", "POST"])
+@token_required
+def focus_sessions():
+    if request.method == "GET":
+        result = (
+            supabase.table("focus_sessions")
+            .select("id,subject,task_id,work_minutes,completed_at")
+            .eq("user_id", request.user_id)
+            .order("completed_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        return jsonify({"sessions": result.data or []})
+    data = request.get_json(silent=True) or {}
+    try:
+        work_minutes = max(1, min(int(data.get("work_minutes", 25)), 120))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Work duration must be a valid number"}), 400
+    result = supabase.table("focus_sessions").insert({
+        "user_id": request.user_id,
+        "subject": (data.get("subject") or "").strip()[:80],
+        "task_id": data.get("task_id") or None,
+        "work_minutes": work_minutes,
+        "completed_at": datetime.datetime.utcnow().isoformat(),
+    }).execute()
+    return jsonify({"session": result.data[0]}), 201
 
 
 @app.route("/api/fix-diagram", methods=["POST"])
@@ -749,15 +927,33 @@ def get_dashboard():
     recent_questions = recent_questions_res.data or []
     for q in recent_questions:
         q["id"] = str(q["id"])
+    recent_plans, recent_attempts = [], []
+    try:
+        recent_plans_res = supabase.table("study_plans").select("id,title,subject,exam_date,completed").eq("user_id", request.user_id).order("exam_date").limit(3).execute()
+        recent_plans = recent_plans_res.data or []
+    except APIError:
+        app.logger.warning("Dashboard planner summary unavailable", exc_info=True)
+    try:
+        recent_attempts_res = supabase.table("quiz_attempts").select("id,score,total,created_at,document_id").eq("user_id", request.user_id).order("created_at", desc=True).limit(3).execute()
+        recent_attempts = recent_attempts_res.data or []
+    except APIError:
+        app.logger.warning("Dashboard quiz summary unavailable", exc_info=True)
+    attempt_totals = supabase.table("quiz_attempts").select("score,total").eq("user_id", request.user_id).limit(100).execute().data or []
+    attempted_questions = sum(int(attempt.get("total") or 0) for attempt in attempt_totals)
+    earned_questions = sum(int(attempt.get("score") or 0) for attempt in attempt_totals)
+    actual_avg_score = round(earned_questions / attempted_questions * 100) if attempted_questions else None
 
     return jsonify({
         "user_name": user.get("name", "") if user else "",
         "total_questions": q_count,
         "total_documents": d_count,
         "study_streak": user.get("study_streak", 0) if user else 0,
-        "avg_score": user.get("avg_score", 0) if user else 0,
+        "avg_score": actual_avg_score,
+        "completed_quizzes": len(attempt_totals),
         "recent_documents": recent_docs,
         "recent_questions": recent_questions,
+        "upcoming_plans": recent_plans,
+        "recent_quiz_attempts": recent_attempts,
     })
 
 
@@ -819,8 +1015,26 @@ def update_study_plan(plan_id):
 
     data = request.get_json(silent=True) or {}
     updates = {}
+    if "title" in data:
+        title = str(data["title"]).strip()[:120]
+        if not title:
+            return jsonify({"error": "Title cannot be empty"}), 400
+        updates["title"] = title
+    if "subject" in data:
+        subject = str(data["subject"]).strip()[:80]
+        if not subject:
+            return jsonify({"error": "Subject cannot be empty"}), 400
+        updates["subject"] = subject
+    if "exam_date" in data:
+        exam_date = str(data["exam_date"]).strip()
+        try:
+            datetime.date.fromisoformat(exam_date)
+        except ValueError:
+            return jsonify({"error": "Exam date must use YYYY-MM-DD format"}), 400
+        updates["exam_date"] = exam_date
     if "completed" in data:
         updates["completed"] = bool(data["completed"])
+        updates["completed_at"] = datetime.datetime.utcnow().isoformat() if updates["completed"] else None
     if "notes" in data:
         updates["notes"] = str(data["notes"]).strip()[:500]
     if not updates:
@@ -835,6 +1049,92 @@ def update_study_plan(plan_id):
     if not result.data:
         return jsonify({"error": "Plan not found"}), 404
     return jsonify({"plan": result.data[0]})
+
+
+@app.route("/api/tasks", methods=["GET", "POST"])
+@token_required
+def study_tasks():
+    if request.method == "GET":
+        result = (
+            supabase.table("study_tasks")
+            .select("*")
+            .eq("user_id", request.user_id)
+            .order("due_date")
+            .limit(100)
+            .execute()
+        )
+        return jsonify({"tasks": result.data or []})
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    due_date = (data.get("due_date") or "").strip()
+    if not title or not due_date:
+        return jsonify({"error": "Task title and due date are required"}), 400
+    try:
+        datetime.date.fromisoformat(due_date)
+        estimated_minutes = max(5, min(int(data.get("estimated_minutes", 30)), 480))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Due date must use YYYY-MM-DD and duration must be valid"}), 400
+    priority = data.get("priority", "medium")
+    if priority not in {"low", "medium", "high"}:
+        return jsonify({"error": "Priority must be low, medium, or high"}), 400
+    result = supabase.table("study_tasks").insert({
+        "user_id": request.user_id,
+        "plan_id": data.get("plan_id") or None,
+        "title": title[:160],
+        "subject": (data.get("subject") or "").strip()[:80],
+        "topic": (data.get("topic") or "").strip()[:160],
+        "due_date": due_date,
+        "priority": priority,
+        "estimated_minutes": estimated_minutes,
+    }).execute()
+    return jsonify({"task": result.data[0]}), 201
+
+
+@app.route("/api/tasks/<task_id>", methods=["PATCH", "DELETE"])
+@token_required
+def update_study_task(task_id):
+    try:
+        uuid.UUID(str(task_id))
+    except ValueError:
+        return jsonify({"error": "Invalid task ID"}), 400
+    if request.method == "DELETE":
+        result = supabase.table("study_tasks").delete().eq("id", task_id).eq("user_id", request.user_id).execute()
+        if not result.data:
+            return jsonify({"error": "Task not found"}), 404
+        return jsonify({"message": "Task deleted"})
+
+    data = request.get_json(silent=True) or {}
+    updates = {}
+    for field, limit in (("title", 160), ("subject", 80), ("topic", 160)):
+        if field in data:
+            value = str(data[field]).strip()[:limit]
+            if field == "title" and not value:
+                return jsonify({"error": "Task title cannot be empty"}), 400
+            updates[field] = value
+    if "due_date" in data:
+        try:
+            datetime.date.fromisoformat(str(data["due_date"]))
+        except ValueError:
+            return jsonify({"error": "Due date must use YYYY-MM-DD format"}), 400
+        updates["due_date"] = str(data["due_date"])
+    if "completed" in data:
+        updates["completed"] = bool(data["completed"])
+    if "priority" in data:
+        if data["priority"] not in {"low", "medium", "high"}:
+            return jsonify({"error": "Priority must be low, medium, or high"}), 400
+        updates["priority"] = data["priority"]
+    if "estimated_minutes" in data:
+        try:
+            updates["estimated_minutes"] = max(5, min(int(data["estimated_minutes"]), 480))
+        except (TypeError, ValueError):
+            return jsonify({"error": "Duration must be a valid number"}), 400
+    if not updates:
+        return jsonify({"error": "No supported fields supplied"}), 400
+    result = supabase.table("study_tasks").update(updates).eq("id", task_id).eq("user_id", request.user_id).execute()
+    if not result.data:
+        return jsonify({"error": "Task not found"}), 404
+    return jsonify({"task": result.data[0]})
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

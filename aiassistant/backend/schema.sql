@@ -121,7 +121,7 @@ create table if not exists quiz_attempts (
 create index if not exists quiz_attempts_user_created_idx on quiz_attempts(user_id, created_at desc);
 alter table quiz_attempts enable row level security;
 
-create table if not exists document_chunks (
+create table if not exists document_chunk (
     id uuid primary key default gen_random_uuid(),
     document_id uuid not null,
     user_id uuid not null,
@@ -133,12 +133,12 @@ create table if not exists document_chunks (
         references documents(id, user_id)
         on delete cascade
 );
-create index if not exists document_chunks_user_document_idx
-    on document_chunks(user_id, document_id, chunk_index);
-alter table document_chunks enable row level security;
-drop policy if exists "Document chunks are server managed" on document_chunks;
+create index if not exists document_chunk_user_document_idx
+    on document_chunk(user_id, document_id, chunk_index);
+alter table document_chunk enable row level security;
+drop policy if exists "Document chunks are server managed" on document_chunk;
 create policy "Document chunks are server managed"
-    on document_chunks
+    on document_chunk
     for all
     to anon, authenticated
     using (false)
@@ -157,7 +157,7 @@ begin
         'study_plans',
         'quiz_sessions',
         'quiz_attempts',
-        'document_chunks'
+        'document_chunk'
     ]
     loop
         execute format('alter table %I enable row level security', table_name);

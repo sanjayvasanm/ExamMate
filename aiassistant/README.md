@@ -55,10 +55,25 @@ python app.py
 ```
 
 The migration is additive and must be reviewed before running against any
-production Supabase project. It creates a private Storage bucket and the
-`document_chunks` table. The Flask backend stores uploaded documents in that
-bucket and reconstructs its in-memory TF-IDF index from persisted chunks after
-restart. No browser code receives the service-role key.
+production Supabase project. It creates a private Storage bucket, persistent
+`document_chunk`, `study_plans`, `quiz_sessions`, and `quiz_attempts` tables.
+The Flask backend stores uploaded documents in that bucket and reconstructs its
+in-memory TF-IDF index from persisted chunks after restart. No browser code
+receives the service-role key. The live schema uses the singular
+`document_chunk` table name; set `DOCUMENT_CHUNKS_TABLE=document_chunk` in
+Render (the backend defaults to this value). Older installations that still
+use `document_chunks` can set that variable explicitly until migrated.
+
+If PostgREST reports `PGRST205` after the tables are created, refresh its
+schema cache from the Supabase SQL editor:
+
+```sql
+NOTIFY pgrst, 'reload schema';
+```
+
+Run `backend/migrations/verify_persistent_documents.sql` before and after the
+migration. The verification script is read-only and checks table columns,
+ownership relationships, RLS, grants, policies, and Storage privacy.
 
 Run focused backend tests with:
 

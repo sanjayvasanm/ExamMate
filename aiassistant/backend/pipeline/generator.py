@@ -358,6 +358,20 @@ def generate_quiz(topic, context, count=5):
     except Exception as exc:
         print(f"[Quiz] Generation failed: {exc}");raise RuntimeError("Quiz generation is unavailable; please try again") from exc
 
+def generate_flashcards(topic, context, count=10):
+    prompt=f"""Create exactly {count} concise study flashcards about {topic}. Prefer the supplied study context and do not invent document citations. Return only JSON: {{"cards":[{{"front":"...","back":"..."}}]}}. Each front and back must be non-empty and suitable for revision.
+CONTEXT:
+{context[:6000]}"""
+    try:
+        completion=_groq_completion_with_fallback(messages=[{"role":"system","content":"You are a JSON-only flashcard generator."},{"role":"user","content":prompt}],response_format={"type":"json_object"},temperature=0.2,max_tokens=2500)
+        text=completion.choices[0].message.content.strip();text=text[text.find("{"):text.rfind("}")+1];payload=json.loads(text,strict=False)
+        cards=payload.get("cards",[])
+        if len(cards)!=count or any(not str(card.get("front","")).strip() or not str(card.get("back","")).strip() for card in cards):
+            raise ValueError("Generated flashcards failed validation")
+        return {"cards":[{"front":str(card["front"]).strip()[:500],"back":str(card["back"]).strip()[:1200]} for card in cards]}
+    except Exception as exc:
+        print(f"[Flashcards] Generation failed: {exc}");raise RuntimeError("Flashcard generation is unavailable; please try again") from exc
+
 def detect_keywords(text):
     """
     Extracts key academic terms from the text for tagging.

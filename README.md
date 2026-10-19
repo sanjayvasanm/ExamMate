@@ -14,7 +14,7 @@
 
 ## 🛠️ Tech Stack
 
-- **Backend:** Python (Flask), MongoDB, Groq API (LLM), JWT Authentication.
+- **Backend:** Python (Flask), supabase, Groq API (LLM), JWT Authentication.
 - **Frontend:** HTML5, Vanilla JavaScript, CSS3 (Modern Glassmorphism), Mermaid.js.
 - **Mobile:** Flutter (WebView Hybrid Architecture), PWA (Service Workers).
 - **Tooling:** Ripgrep, Shell Scripting, Git.

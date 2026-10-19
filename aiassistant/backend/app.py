@@ -4,6 +4,7 @@ import json
 import datetime
 import uuid
 import tempfile
+import sys
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -43,7 +44,6 @@ CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials
 SECRET_KEY = os.environ.get("JWT_SECRET")
 if not SECRET_KEY:
     # Print clearly to stderr for cloud deployment logs
-    import sys
     print("FATAL: JWT_SECRET environment variable is required for deployment.", file=sys.stderr)
     print("Please set JWT_SECRET in your Render/Cloud environment variables.", file=sys.stderr)
     sys.exit(1)
@@ -55,7 +55,14 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-DOCUMENT_CHUNKS_TABLE = os.environ.get("DOCUMENT_CHUNKS_TABLE", "document_chunks")
+_configured_chunks_table = os.environ.get("DOCUMENT_CHUNKS_TABLE", "document_chunks").strip()
+if _configured_chunks_table != "document_chunks":
+    print(
+        "WARNING: Ignoring unsupported DOCUMENT_CHUNKS_TABLE value; "
+        "production uses public.document_chunks.",
+        file=sys.stderr,
+    )
+DOCUMENT_CHUNKS_TABLE = "document_chunks"
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     import sys
@@ -94,7 +101,17 @@ def handle_supabase_error(e):
             "message": "The database project is currently paused or down. Please go to the Supabase Dashboard and 'Restore' your project.",
             "hint": "Check if your Supabase project is active and not paused due to inactivity."
         }), 503
-    
+
+    if "PGRST205" in error_msg:
+        return jsonify({
+            "status": "error",
+            "error": "Database schema is not ready",
+            "message": (
+                "A required ExamMate table is missing from the Supabase schema cache. "
+                "Run the reviewed feature migration, then reload the PostgREST schema cache."
+            ),
+        }), 503
+
     return jsonify({
         "status": "error",
         "error": "Database Error",

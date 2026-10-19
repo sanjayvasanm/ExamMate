@@ -91,9 +91,24 @@ function showToast(msg, type = 'error') {
   setTimeout(() => t.className = 'toast', 3500);
 }
 
+function enhanceShell() {
+  document.querySelectorAll('header').forEach(header => {
+    header.setAttribute('role', 'banner');
+    const brand = header.querySelector('h1, [data-brand]');
+    if (brand) brand.setAttribute('data-brand', 'Exam Mate');
+  });
+  document.querySelectorAll('nav.fixed').forEach(nav => {
+    nav.setAttribute('aria-label', 'Primary navigation');
+  });
+  document.body.classList.add('em-ready');
+}
+
+document.addEventListener('DOMContentLoaded', enhanceShell);
+
 // Global exposure
 window.API = API;
 window.apiFetch = apiFetch;
 window.getApiUrl = getApiUrl;
 window.navigate = navigate;
 window.showToast = showToast;
+window.enhanceShell = enhanceShell;

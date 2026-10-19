@@ -3,6 +3,7 @@ import time
 import json
 import datetime
 import uuid
+import tempfile
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -16,21 +17,28 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
+from storage import STORAGE_BUCKET, delete_document, download_document, upload_document
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
 from pipeline.extractor import extract_text_hybrid, chunk_content
 from pipeline.retriever import retriever_instance, get_context
-from pipeline.generator import generate_exam_answer, detect_keywords, fix_mermaid_diagram
-
-# ── Debug Logging ─────────────────────────────────────────────────────────────
-print(f"[DEBUG] Current Working Directory: {os.getcwd()}")
-print(f"[DEBUG] Files in CWD: {os.listdir('.')}")
+from pipeline.generator import generate_exam_answer, generate_quiz, detect_keywords, fix_mermaid_diagram
 
 # ── App config ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
-# Allow all origins in development to facilitate mobile APK connectivity
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
+# Keep local development convenient, but fail closed in explicitly configured
+# production environments when the deployed frontend origin is missing.
+environment = os.environ.get("ENVIRONMENT", "development").lower()
+cors_value = os.environ.get("CORS_ORIGINS", "").strip()
+if environment == "production" and not cors_value:
+    raise RuntimeError("CORS_ORIGINS must be set in production.")
+cors_origins = (
+    [origin.strip() for origin in cors_value.split(",") if origin.strip()]
+    if cors_value
+    else "*"
+)
+CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=False)
 
 SECRET_KEY = os.environ.get("JWT_SECRET")
 if not SECRET_KEY:
@@ -39,13 +47,10 @@ if not SECRET_KEY:
     print("FATAL: JWT_SECRET environment variable is required for deployment.", file=sys.stderr)
     print("Please set JWT_SECRET in your Render/Cloud environment variables.", file=sys.stderr)
     sys.exit(1)
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
 ALLOWED_EXTENSIONS = {"pdf", "pptx", "ppt", "docx", "txt", "png", "jpg", "jpeg"}
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -93,13 +98,34 @@ def handle_supabase_error(e):
         "status": "error",
         "error": "Database Error",
         "message": "An error occurred while communicating with the database.",
-        "details": error_msg
     }), 500
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _storage_path(user_id: str, document_id: str, filename: str) -> str:
+    return f"{user_id}/{document_id}/{filename}"
+
+
+def _load_persistent_context(user_id: str, document_id: str | None = None) -> None:
+    query = supabase.table("document_chunks").select("document_id,chunk_index,content").eq("user_id", user_id)
+    if document_id:
+        query = query.eq("document_id", document_id)
+    rows = query.order("document_id").order("chunk_index").execute().data or []
+    if document_id:
+        retriever_instance.sync(
+            [{"text": row["content"]} for row in rows if row.get("content")],
+            user_id=user_id,
+            document_id=document_id,
+        )
+    else:
+        retriever_instance.sync_records(
+            [row for row in rows if row.get("content")],
+            user_id=user_id,
+        )
 
 
 def make_token(user_id: str, email: str) -> str:
@@ -315,44 +341,87 @@ def upload_file():
         return jsonify({"error": f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
 
     filename = secure_filename(file.filename)
-    # Prefix with user + timestamp to avoid collisions
-    unique_name = f"{request.user_id}_{int(time.time())}_{filename}"
-    filepath = os.path.join(UPLOAD_FOLDER, unique_name)
-    file.save(filepath)
-
-    chunks_processed = 0
     doc_id = str(uuid.uuid4())
-
-    # Process AI pipeline for all supported document types
     ext = filename.rsplit(".", 1)[1].lower()
-    if ext in ALLOWED_EXTENSIONS:
-        try:
-            print(f"[Pipeline] Processing {filename} ({ext})...")
-            text_blocks = extract_text_hybrid(filepath)
-            chunks = chunk_content(text_blocks)
-            
-            if chunks:
-                retriever_instance.ingest(chunks)
-                chunks_processed = len(chunks)
-                print(f"[Pipeline] Successfully ingested {chunks_processed} chunks from {filename}")
-            else:
-                print(f"[Pipeline] Warning: No text extracted from {filename}")
-        except Exception as exc:
-            print(f"[Pipeline] Error processing {filename}: {exc}")
+    storage_path = _storage_path(request.user_id, doc_id, filename)
+    temp_path = None
+    chunks = []
+    file_size_bytes = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as temp_file:
+            file.save(temp_file)
+            temp_path = temp_file.name
+        file_size_bytes = os.path.getsize(temp_path)
 
-    # Persist document metadata to Supabase
+        with open(temp_path, "rb") as stored_file:
+            upload_document(
+                supabase.storage,
+                storage_path,
+                stored_file,
+                file.mimetype or "application/octet-stream",
+            )
+        print(f"[Storage] Uploaded {filename} to {STORAGE_BUCKET}/{storage_path}")
+        text_blocks = extract_text_hybrid(temp_path)
+        chunks = chunk_content(text_blocks)
+    except Exception as exc:
+        if storage_path:
+            try:
+                delete_document(supabase.storage, storage_path)
+            except Exception as cleanup_error:
+                print(f"[Storage Warning] Cleanup failed for {storage_path}: {cleanup_error}")
+        print(f"[Upload Error] {filename}: {exc}")
+        return jsonify({"error": "Document upload or processing failed"}), 502
+    finally:
+        if temp_path:
+            try:
+                os.remove(temp_path)
+            except OSError as cleanup_error:
+                print(f"[Upload Warning] Temporary file cleanup failed: {cleanup_error}")
+
+    chunks_processed = len(chunks)
+    chunk_records = [
+        {
+            "document_id": doc_id,
+            "user_id": request.user_id,
+            "chunk_index": index,
+            "content": chunk.get("text", chunk.get("chunk", "")) if isinstance(chunk, dict) else str(chunk),
+        }
+        for index, chunk in enumerate(chunks)
+        if (chunk.get("text", chunk.get("chunk", "")) if isinstance(chunk, dict) else str(chunk)).strip()
+    ]
     doc_record = {
         "id": doc_id,
         "user_id": request.user_id,
         "filename": filename,
-        "stored_path": filepath,
+        "stored_path": storage_path,
+        "storage_bucket": STORAGE_BUCKET,
+        "storage_path": storage_path,
         "file_type": ext.upper(),
-        "file_size_mb": round(os.path.getsize(filepath) / (1024 * 1024), 2),
+        "file_size_mb": round(file_size_bytes / (1024 * 1024), 2) if file_size_bytes is not None else None,
         "chunks_processed": chunks_processed,
         "uploaded_at": datetime.datetime.utcnow().isoformat(),
         "status": "processed" if chunks_processed > 0 else "uploaded",
     }
-    supabase.table("documents").insert(doc_record).execute()
+    try:
+        supabase.table("documents").insert(doc_record).execute()
+        if chunk_records:
+            supabase.table("document_chunks").insert(chunk_records).execute()
+            retriever_instance.sync(
+                [{"text": row["content"]} for row in chunk_records],
+                user_id=request.user_id,
+                document_id=doc_id,
+            )
+    except Exception:
+        try:
+            delete_document(supabase.storage, storage_path)
+        except Exception as cleanup_error:
+            print(f"[Storage Warning] Database rollback cleanup failed: {cleanup_error}")
+        try:
+            supabase.table("document_chunks").delete().eq("document_id", doc_id).eq("user_id", request.user_id).execute()
+            supabase.table("documents").delete().eq("id", doc_id).eq("user_id", request.user_id).execute()
+        except Exception as cleanup_error:
+            print(f"[Database Warning] Upload rollback cleanup failed: {cleanup_error}")
+        raise
 
     # Increment user's document count atomically via Supabase RPC
     # NOTE: You must create this function in Supabase SQL Editor (see summary)
@@ -370,6 +439,48 @@ def upload_file():
     })
 
 
+@app.route("/api/documents/<document_id>", methods=["DELETE"])
+@token_required
+def delete_document_route(document_id):
+    try:
+        uuid.UUID(str(document_id))
+    except ValueError:
+        return jsonify({"error": "Invalid document ID"}), 400
+
+    result = (
+        supabase.table("documents")
+        .select("id,storage_bucket,storage_path,stored_path")
+        .eq("id", document_id)
+        .eq("user_id", request.user_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Document not found"}), 404
+
+    document = result.data[0]
+    storage_path = document.get("storage_path") or document.get("stored_path")
+    storage_bucket = document.get("storage_bucket") or STORAGE_BUCKET
+    if storage_path:
+        try:
+            delete_document(supabase.storage, storage_path, bucket=storage_bucket)
+        except Exception as exc:
+            print(f"[Storage Error] Delete failed for {storage_path}: {exc}")
+            return jsonify({"error": "Document storage deletion failed"}), 502
+
+    deleted = (
+        supabase.table("documents")
+        .delete()
+        .eq("id", document_id)
+        .eq("user_id", request.user_id)
+        .execute()
+    )
+    if not deleted.data:
+        return jsonify({"error": "Document could not be deleted"}), 500
+    retriever_instance.sync([], user_id=request.user_id, document_id=document_id)
+    return jsonify({"message": "Document deleted"})
+
+
 @app.route("/api/documents", methods=["GET"])
 @token_required
 def get_documents():
@@ -378,6 +489,8 @@ def get_documents():
     # Remove sensitive path and ensure JSON serializable
     for d in docs:
         d.pop("stored_path", None)
+        d.pop("storage_path", None)
+        d.pop("storage_bucket", None)
         d["doc_id"] = d.get("id")
         # SUPABASE returns ISO strings, no need to call .isoformat() manually
 
@@ -396,6 +509,9 @@ def ask_question():
         if doc_id:
             try:
                 uuid.UUID(str(doc_id))
+                owned_doc = (supabase.table("documents").select("id").eq("id", str(doc_id)).eq("user_id", request.user_id).limit(1).execute())
+                if not owned_doc.data:
+                    return jsonify({"error": "Document not found"}), 404
             except ValueError:
                 print(f"[API Warning] Invalid document_id '{doc_id}', treating as None.")
                 doc_id = None
@@ -406,7 +522,8 @@ def ask_question():
             return jsonify({"error": "Question is required"}), 400
 
         print(f"[API] Asking: {question} (Marks: {marks}, Mode: {mode})")
-        context = get_context(question, doc_id)
+        _load_persistent_context(request.user_id, doc_id)
+        context = get_context(question, user_id=request.user_id, document_id=doc_id)
         answer, diagrams = generate_exam_answer(question, context, mode, marks)
         
         all_text = answer.get("explanation", "") + " ".join(answer.get("points", []))
@@ -456,6 +573,50 @@ def ask_question():
 
 
 # ── Mermaid Self-Correction ────────────────────────────────────────────────────
+# Quiz generation and persisted attempts.
+@app.route("/api/quizzes/generate", methods=["POST"])
+@token_required
+def generate_quiz_route():
+    data=request.get_json(silent=True) or {}; document_id=data.get("document_id")
+    try:
+        if document_id:
+            uuid.UUID(str(document_id)); owned=supabase.table("documents").select("id").eq("id",str(document_id)).eq("user_id",request.user_id).limit(1).execute()
+            if not owned.data:return jsonify({"error":"Document not found"}),404
+        count=max(3,min(int(data.get("count",5)),10))
+    except (TypeError,ValueError):return jsonify({"error":"Invalid quiz count or document_id"}),400
+    topic=(data.get("topic") or "General revision").strip()[:160]
+    try:
+        _load_persistent_context(request.user_id, document_id)
+        quiz=generate_quiz(topic,get_context(topic,user_id=request.user_id,document_id=document_id),count)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    session=supabase.table("quiz_sessions").insert({"user_id":request.user_id,"document_id":document_id or None,"quiz":quiz}).execute()
+    session_id=str(session.data[0]["id"]) if session.data else None
+    return jsonify({"quiz":quiz,"document_id":document_id,"session_id":session_id})
+
+@app.route("/api/quizzes/attempt", methods=["POST"])
+@token_required
+def submit_quiz_attempt():
+    data=request.get_json(silent=True) or {}; answers=data.get("answers") or []; session_id=data.get("session_id")
+    if not session_id or not isinstance(answers,list):return jsonify({"error":"A quiz session and answers are required"}),400
+    try: uuid.UUID(str(session_id))
+    except ValueError:return jsonify({"error":"Invalid quiz session"}),400
+    session=supabase.table("quiz_sessions").select("quiz,document_id").eq("id",session_id).eq("user_id",request.user_id).limit(1).execute()
+    if not session.data:return jsonify({"error":"Quiz session not found"}),404
+    quiz=session.data[0]["quiz"]; questions=quiz.get("questions") or []
+    if not questions or len(answers)!=len(questions):return jsonify({"error":"A complete quiz and one answer per question are required"}),400
+    score=sum(1 for q,a in zip(questions,answers) if str(a).upper()==str(q.get("answer","")).upper())
+    record={"user_id":request.user_id,"quiz":quiz,"answers":answers,"score":score,"total":len(questions),"document_id":session.data[0].get("document_id")}
+    result=supabase.table("quiz_attempts").insert(record).execute()
+    return jsonify({"attempt":result.data[0] if result.data else record,"score":score,"total":len(questions)}),201
+
+@app.route("/api/quizzes/attempts", methods=["GET"])
+@token_required
+def list_quiz_attempts():
+    result=supabase.table("quiz_attempts").select("id,score,total,created_at,document_id").eq("user_id",request.user_id).order("created_at",desc=True).limit(20).execute()
+    return jsonify({"attempts":result.data or []})
+
+
 @app.route("/api/fix-diagram", methods=["POST"])
 @token_required
 def fix_diagram():
@@ -580,6 +741,8 @@ def get_dashboard():
     recent_docs = recent_docs_res.data or []
     for d in recent_docs:
         d.pop("stored_path", None)
+        d.pop("storage_path", None)
+        d.pop("storage_bucket", None)
         d["doc_id"] = d.get("id")
 
     recent_questions_res = supabase.table("questions").select("*").eq("user_id", request.user_id).order("asked_at", desc=True).limit(3).execute()
@@ -598,8 +761,85 @@ def get_dashboard():
     })
 
 
+# ── Study planner ────────────────────────────────────────────────────────────
+@app.route("/api/plans", methods=["GET", "POST"])
+@token_required
+def study_plans():
+    if request.method == "GET":
+        result = (
+            supabase.table("study_plans")
+            .select("*")
+            .eq("user_id", request.user_id)
+            .order("exam_date")
+            .limit(50)
+            .execute()
+        )
+        return jsonify({"plans": result.data or []})
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    subject = (data.get("subject") or "").strip()
+    exam_date = (data.get("exam_date") or "").strip()
+    if not title or not subject or not exam_date:
+        return jsonify({"error": "Title, subject, and exam date are required"}), 400
+    try:
+        datetime.date.fromisoformat(exam_date)
+    except ValueError:
+        return jsonify({"error": "Exam date must use YYYY-MM-DD format"}), 400
+
+    result = supabase.table("study_plans").insert({
+        "user_id": request.user_id,
+        "title": title[:120],
+        "subject": subject[:80],
+        "exam_date": exam_date,
+        "notes": (data.get("notes") or "").strip()[:500],
+    }).execute()
+    return jsonify({"plan": result.data[0]}), 201
+
+
+@app.route("/api/plans/<plan_id>", methods=["PATCH", "DELETE"])
+@token_required
+def update_study_plan(plan_id):
+    try:
+        uuid.UUID(str(plan_id))
+    except ValueError:
+        return jsonify({"error": "Invalid plan ID"}), 400
+
+    if request.method == "DELETE":
+        result = (
+            supabase.table("study_plans")
+            .delete()
+            .eq("id", plan_id)
+            .eq("user_id", request.user_id)
+            .execute()
+        )
+        if not result.data:
+            return jsonify({"error": "Plan not found"}), 404
+        return jsonify({"message": "Plan deleted"})
+
+    data = request.get_json(silent=True) or {}
+    updates = {}
+    if "completed" in data:
+        updates["completed"] = bool(data["completed"])
+    if "notes" in data:
+        updates["notes"] = str(data["notes"]).strip()[:500]
+    if not updates:
+        return jsonify({"error": "No supported fields supplied"}), 400
+    result = (
+        supabase.table("study_plans")
+        .update(updates)
+        .eq("id", plan_id)
+        .eq("user_id", request.user_id)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Plan not found"}), 404
+    return jsonify({"plan": result.data[0]})
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route("/api/health", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "db": "supabase"})
 

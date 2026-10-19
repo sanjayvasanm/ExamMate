@@ -3,13 +3,11 @@
  * Render (Cloud): https://YOUR_APP_NAME.onrender.com/api
  * Local: http://10.174.238.113:5000/api
  */
-const RENDER_NAME = 'exammate-ai'; // Change this after you create your Render service
-
 const getApiUrl = () => {
   const override = localStorage.getItem('em_api_override');
   if (override) return override;
 
-  return 'https://exam-mate-backend-w5t6.onrender.com/api';
+  return window.EXAM_MATE_API_URL || 'https://exam-mate-backend-w5t6.onrender.com/api';
 };
 
 const API = getApiUrl();
@@ -26,7 +24,7 @@ if ('serviceWorker' in navigator) {
 async function apiFetch(url, options = {}) {
   const token = localStorage.getItem('em_token');
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 300000); // 300s (5m) timeout for heavy AI processing
+  const timeout = setTimeout(() => controller.abort(), 180000); // 3m for document processing and AI generation
 
   const headers = {
     ...options.headers
@@ -70,7 +68,9 @@ function navigate(page) {
     history: 'history_exam_mate/code.html',
     profile: 'profile_exam_mate/code.html',
     login: 'login_exam_mate/code.html',
-    signup: 'signup_exam_mate/code.html'
+    signup: 'signup_exam_mate/code.html',
+    planner: 'planner_exam_mate/code.html',
+    quiz: 'quiz_exam_mate/code.html'
   };
   // If we are already in a subdirectory (which basically all screens are), go up one level
   const currentPath = window.location.pathname;

@@ -348,6 +348,16 @@ def generate_exam_answer(query, context, mode="detailed", marks=5):
     return structured_response, diagrams
 
 
+def generate_quiz(topic, context, count=5):
+    prompt=f"""Create exactly {count} multiple-choice revision questions about {topic}. Use the supplied study context when available. Return only JSON: {{\"title\":\"...\",\"questions\":[{{\"question\":\"...\",\"options\":[\"A...\",\"B...\",\"C...\",\"D...\"],\"answer\":\"A\",\"explanation\":\"...\"}}]}}. Each answer must be A, B, C, or D.\nCONTEXT:\n{context[:5000]}"""
+    try:
+        completion=_groq_completion_with_fallback(messages=[{"role":"system","content":"You are a JSON-only quiz generator."},{"role":"user","content":prompt}],response_format={"type":"json_object"},temperature=0.2,max_tokens=2500)
+        text=completion.choices[0].message.content.strip();text=text[text.find("{"):text.rfind("}")+1];quiz=json.loads(text,strict=False);questions=quiz.get("questions",[])
+        if len(questions)!=count or any(len(q.get("options",[]))!=4 or q.get("answer") not in {"A","B","C","D"} for q in questions):raise ValueError("Generated quiz failed validation")
+        return {"title":quiz.get("title",f"Quiz: {topic}"),"questions":questions}
+    except Exception as exc:
+        print(f"[Quiz] Generation failed: {exc}");raise RuntimeError("Quiz generation is unavailable; please try again") from exc
+
 def detect_keywords(text):
     """
     Extracts key academic terms from the text for tagging.

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exam Mate - Study Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; } body { font-family: "Public Sans", sans-serif; }
+    .material-symbols-outlined { font-variation-settings: "FILL" 0, "wght" 500; vertical-align: middle; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity .2s; z-index: 10; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 pb-24">
+  <header class="sticky top-0 z-10 flex items-center justify-between bg-[#0D0C22] px-6 py-4 text-white shadow-lg">
+    <button onclick="navigate('dashboard')" class="flex items-center gap-3 font-bold"><span class="material-symbols-outlined text-[#10B981]">auto_awesome</span> Exam Mate</button>
+    <nav class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-400">
+      <button onclick="navigate('dashboard')">Home</button><button onclick="navigate('upload')">Library</button>
+      <span class="text-[#10B981]">Planner</span><button onclick="navigate('history')">History</button>
+    </nav>
+    <button onclick="navigate('profile')" class="rounded-full bg-emerald-900/40 px-3 py-2 text-sm font-bold text-emerald-300">Profile</button>
+  </header>
+  <main class="mx-auto max-w-5xl px-5 py-10">
+    <div class="mb-8"><p class="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">Study planner</p><h1 class="text-3xl font-extrabold tracking-tight">Make revision feel manageable.</h1><p class="mt-2 max-w-xl text-slate-500">Add your next exam and turn it into a clear, visible study commitment.</p></div>
+    <div class="grid gap-7 lg:grid-cols-[1fr_1.3fr]">
+      <form id="planForm" class="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-5 text-lg font-bold">Add an exam</h2>
+        <label class="mb-4 block text-sm font-semibold">Plan title<input id="title" required maxlength="120" placeholder="e.g. Thermodynamics revision" class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
+        <label class="mb-4 block text-sm font-semibold">Subject<input id="subject" required maxlength="80" placeholder="Physics" class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
+        <label class="mb-4 block text-sm font-semibold">Exam date<input id="examDate" type="date" required class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
+        <label class="mb-5 block text-sm font-semibold">Notes <span class="font-normal text-slate-400">(optional)</span><textarea id="notes" maxlength="500" rows="3" placeholder="Topics to cover..." class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></textarea></label>
+        <button class="w-full rounded-xl bg-[#0D0C22] py-3 font-bold text-white transition hover:bg-slate-800">Save to planner</button>
+      </form>
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div class="mb-5 flex items-center justify-between"><h2 class="text-lg font-bold">Upcoming exams</h2><span id="planCount" class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"></span></div><div id="plans" class="space-y-3"><p class="py-10 text-center text-sm text-slate-400">Loading your plan...</p></div></section>
+    </div>
+  </main>
+  <nav class="fixed bottom-0 left-0 z-10 flex w-full justify-around border-t border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500 md:hidden"><button onclick="navigate('dashboard')">Home</button><button onclick="navigate('upload')">Library</button><button class="text-emerald-700" onclick="navigate('planner')">Planner</button><button onclick="navigate('profile')">Profile</button></nav>
+  <div id="toast" class="toast rounded-xl bg-[#0D0C22] px-5 py-3 text-sm font-semibold text-white"></div>
+  <script src="../api-utils.js"></script>
+  <script>
+    const token = localStorage.getItem('em_token');
+    if (!token) navigate('login');
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const toast = (message, error = false) => { const el = document.getElementById('toast'); el.textContent = message; el.className = 'toast show ' + (error ? 'bg-red-600' : 'bg-[#0D0C22]'); setTimeout(() => el.className = 'toast', 3000); };
+    const escapeHtml = value => String(value || '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    function daysUntil(date) { const diff = new Date(date + 'T00:00:00') - new Date(new Date().toDateString()); return Math.max(0, Math.ceil(diff / 86400000)); }
+    async function loadPlans() {
+      const response = await apiFetch(API + '/plans', { headers });
+      if (!response || !response.ok) { toast('Could not load planner', true); return; }
+      const data = await response.json(); document.getElementById('planCount').textContent = (data.plans || []).length + ' planned';
+      document.getElementById('plans').innerHTML = data.plans.length ? data.plans.map(plan => `<article class="flex items-start gap-4 rounded-2xl border ${plan.completed ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-100 bg-slate-50'} p-4"><button onclick="togglePlan('${plan.id}', ${!plan.completed})" class="mt-1 text-emerald-700"><span class="material-symbols-outlined">${plan.completed ? 'check_circle' : 'radio_button_unchecked'}</span></button><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold ${plan.completed ? 'text-slate-400 line-through' : ''}">${escapeHtml(plan.title)}</h3><span class="text-xs font-bold text-emerald-700">${daysUntil(plan.exam_date)} days</span></div><p class="mt-1 text-sm text-slate-500">${escapeHtml(plan.subject)} · ${escapeHtml(plan.exam_date)}</p>${plan.notes ? `<p class="mt-2 text-sm text-slate-500">${escapeHtml(plan.notes)}</p>` : ''}</div><button onclick="deletePlan('${plan.id}')" class="text-slate-400 hover:text-red-600"><span class="material-symbols-outlined">delete</span></button></article>`).join('') : '<div class="py-12 text-center"><span class="material-symbols-outlined text-4xl text-slate-300">event_note</span><p class="mt-3 text-sm text-slate-400">No exams planned yet.</p></div>';
+    }
+    document.getElementById('planForm').addEventListener('submit', async event => { event.preventDefault(); const payload = { title: title.value, subject: subject.value, exam_date: examDate.value, notes: notes.value }; const response = await apiFetch(API + '/plans', { method: 'POST', headers, body: JSON.stringify(payload) }); if (!response || !response.ok) { const data = response ? await response.json().catch(() => ({})) : {}; toast(data.error || 'Could not save plan', true); return; } event.target.reset(); toast('Exam added to your planner'); loadPlans(); });
+    async function togglePlan(id, completed) { const response = await apiFetch(API + '/plans/' + id, { method: 'PATCH', headers, body: JSON.stringify({ completed }) }); if (response && response.ok) loadPlans(); else toast('Could not update plan', true); }
+    async function deletePlan(id) { if (!confirm('Remove this exam from your planner?')) return; const response = await apiFetch(API + '/plans/' + id, { method: 'DELETE', headers }); if (response && response.ok) { toast('Plan removed'); loadPlans(); } else toast('Could not remove plan', true); }
+    loadPlans();
+  </script>
+</body>
+</html>

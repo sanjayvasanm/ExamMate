@@ -229,6 +229,9 @@ async function loadDocs() {
           <button onclick="askAboutDoc('${d.doc_id}','${d.filename}')" class="shrink-0 p-2 rounded-lg bg-emerald-50 text-[#008A3F] hover:bg-emerald-100 transition-colors" title="Ask about this doc">
             <span class="material-symbols-outlined text-sm">psychology</span>
           </button>
+          <button onclick="deleteDoc('${d.doc_id}')" class="shrink-0 p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Delete document">
+            <span class="material-symbols-outlined text-sm">delete</span>
+          </button>
         </div>`;
     }).join('');
   } catch(e) {
@@ -241,6 +244,19 @@ function askAboutDoc(docId, filename) {
   sessionStorage.setItem('ask_doc_id', docId);
   sessionStorage.setItem('ask_doc_name', filename);
   navigate('ask');
+}
+
+async function deleteDoc(docId) {
+  if (!window.confirm('Delete this document and its searchable content?')) return;
+  try {
+    const res = await apiFetch(API + '/documents/' + encodeURIComponent(docId), { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not delete document');
+    showToast('Document deleted', 'success');
+    loadDocs();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
 }
 
 loadDocs();

@@ -1,72 +1,74 @@
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import gc
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 class HybridRetriever:
+    """Process-local TF-IDF index rebuilt from persisted, scoped chunks."""
     def __init__(self):
-        # We use a simple TF-IDF vectorizer instead of SentenceTransformers
-        # to eliminate Hugging Face dependencies and save RAM.
-        self.vectorizer = TfidfVectorizer(stop_words='english')
-        self.documents = []
-        self.tfidf_matrix = None
-        
-    def ingest(self, chunks):
-        if not chunks:
+        self.vectorizer=TfidfVectorizer(stop_words="english")
+        self.documents=[]
+        self.tfidf_matrix=None
+
+    def _rebuild(self):
+        if not self.documents:
+            self.tfidf_matrix = None
             return
-        
-        print(f"[Retriever] Ingesting {len(chunks)} chunks using TF-IDF...")
-        
-        # Add new chunks to the existing document list
-        self.documents.extend(chunks)
-        
-        try:
-            # Re-fit the vectorizer and transform all documents
-            # (TF-IDF is fast enough to do this on the fly for academic documents)
-            self.tfidf_matrix = self.vectorizer.fit_transform(self.documents)
-            print(f"[Retriever] Ingestion complete. Index size: {len(self.documents)}")
-        except Exception as e:
-            print(f"[Retriever] Ingestion failed: {e}")
-        finally:
-            gc.collect()
-        
-    def retrieve(self, query, top_k=3):
-        if not self.documents or self.tfidf_matrix is None:
-            return []
-        
-        try:
-            # Transform the query into the same TF-IDF space
-            query_vec = self.vectorizer.transform([query])
-            
-            # Calculate cosine similarity between query and all documents
-            similarities = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
-            
-            # Get top_k indices
-            top_indices = similarities.argsort()[-top_k:][::-1]
-            
-            results = []
-            for idx in top_indices:
-                if similarities[idx] > 0:  # Only return relevant results
-                    results.append({
-                        "chunk": self.documents[idx],
-                        "score": float(similarities[idx])
-                    })
-            return results
-        except Exception as e:
-            print(f"[Retriever] Retrieval failed: {e}")
-            return []
+        self.tfidf_matrix=self.vectorizer.fit_transform([x["text"] for x in self.documents])
 
-# Singleton memory-based retriever
-retriever_instance = HybridRetriever()
+    def ingest(self,chunks,user_id=None,document_id=None):
+        records=[]
+        for chunk in chunks or []:
+            text=(chunk.get("text") or chunk.get("chunk") or "") if isinstance(chunk,dict) else str(chunk)
+            if text.strip():
+                chunk_user_id = chunk.get("user_id") if isinstance(chunk, dict) else None
+                chunk_document_id = chunk.get("document_id") if isinstance(chunk, dict) else None
+                records.append({
+                    "text":text.strip(),
+                    "user_id":str(user_id or chunk_user_id) if (user_id or chunk_user_id) else None,
+                    "document_id":str(document_id or chunk_document_id) if (document_id or chunk_document_id) else None,
+                })
+        if not records:return
+        existing={(x["user_id"], x["document_id"], x["text"]) for x in self.documents}
+        self.documents.extend(x for x in records if (x["user_id"], x["document_id"], x["text"]) not in existing)
+        try:self._rebuild()
+        except Exception as exc:print(f"[Retriever] Ingestion failed: {exc}")
+        finally:gc.collect()
 
-def get_context(query, document_id=None):
-    """
-    Finds the most relevant context from the uploaded documents using TF-IDF.
-    Completely local, no external APIs or heavy models used.
-    """
-    results = retriever_instance.retrieve(query)
-    if not results:
-        return ""
-    
-    context = "\n\n".join([r['chunk'] for r in results])
-    return context
+    def sync(self, chunks, user_id=None, document_id=None):
+        uid=str(user_id) if user_id else None
+        did=str(document_id) if document_id else None
+        self.documents=[x for x in self.documents if not (
+            x["user_id"] == uid and (did is None or x["document_id"] == did)
+        )]
+        self.ingest(chunks, user_id=uid, document_id=did)
+
+    def sync_records(self, records, user_id=None):
+        uid = str(user_id) if user_id else None
+        self.documents = [x for x in self.documents if x["user_id"] != uid]
+        self.ingest(
+            [
+                {
+                    "text": record.get("content", ""),
+                    "user_id": uid,
+                    "document_id": record.get("document_id"),
+                }
+                for record in records
+            ],
+            user_id=uid,
+        )
+
+    def retrieve(self,query,user_id=None,document_id=None,top_k=3):
+        if not self.documents or self.tfidf_matrix is None:return []
+        uid=str(user_id) if user_id else None; did=str(document_id) if document_id else None
+        allowed=[i for i,x in enumerate(self.documents) if (uid is None or x["user_id"]==uid) and (did is None or x["document_id"]==did)]
+        if not allowed:return []
+        try:
+            scores=cosine_similarity(self.vectorizer.transform([query]),self.tfidf_matrix[allowed]).flatten()
+            top=scores.argsort()[-top_k:][::-1]
+            return [{"chunk":self.documents[allowed[i]]["text"],"score":float(scores[i])} for i in top if scores[i]>0]
+        except Exception as exc:print(f"[Retriever] Retrieval failed: {exc}");return []
+
+retriever_instance=HybridRetriever()
+def get_context(query,user_id=None,document_id=None):
+    return "\n\n".join(x["chunk"] for x in retriever_instance.retrieve(query,user_id=user_id,document_id=document_id))

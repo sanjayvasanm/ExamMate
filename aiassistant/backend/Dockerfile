@@ -27,9 +27,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the rest of the application
 COPY . .
 
-# Ensure the uploads directory exists
-RUN mkdir -p uploads
-
 # Expose the port (Render uses $PORT)
 EXPOSE 10000
 

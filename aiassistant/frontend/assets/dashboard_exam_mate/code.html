@@ -37,7 +37,9 @@
       <button onclick="navigate('dashboard')" class="text-[#008A3F] font-semibold">Home</button>
       <button onclick="navigate('upload')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Upload</button>
       <button onclick="navigate('history')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">History</button>
+      <button onclick="navigate('planner')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Planner</button>
       <button onclick="navigate('ask')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Ask AI</button>
+      <button onclick="navigate('quiz')" class="text-slate-400 hover:text-white px-2 py-1 rounded">Quiz</button>
     </div>
     <div class="w-10 h-10 rounded-full bg-[#008A3F]/20 border border-[#008A3F]/30 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
       <span id="avatarInitial" class="text-[#008A3F] font-bold text-lg"></span>
@@ -62,9 +64,23 @@
         <button onclick="navigate('ask')" class="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-xl transition-all backdrop-blur-sm border border-white/10">
           Ask AI Tutor
         </button>
+        <button onclick="navigate('quiz')" class="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-xl transition-all backdrop-blur-sm border border-white/10">
+          Practice Quiz
+        </button>
       </div>
     </div>
     <div class="absolute -bottom-10 -right-10 w-64 h-64 bg-[#008A3F]/10 rounded-full blur-3xl"></div>
+  </section>
+
+  <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 md:p-8 mb-12 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-[#008A3F] mb-2">Stay on track</p>
+      <h2 class="text-2xl font-bold text-slate-900">Plan your next revision session</h2>
+      <p class="text-slate-500 mt-2">Keep exam dates and small study goals in one focused list.</p>
+    </div>
+    <button onclick="navigate('planner')" class="shrink-0 bg-[#0D0C22] hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">calendar_month</span> Open planner
+    </button>
   </section>
 
   <!-- Quick Actions Grid -->
@@ -184,6 +200,7 @@
     <span class="material-symbols-outlined">cloud_upload</span>
     <span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
   </div>
+  <div onclick="navigate('quiz')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all"><span class="material-symbols-outlined">quiz</span><span class="text-[11px] font-medium uppercase tracking-wider">Quiz</span></div>
   <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
     <span class="material-symbols-outlined">history</span>
     <span class="text-[11px] font-medium uppercase tracking-wider">History</span>
@@ -263,7 +280,7 @@ async function loadDashboard() {
     // Activity list
     const list = document.getElementById('activityList');
     const all = [
-      ...data.recent_questions.map(q => ({ type:'question', label:q.question, sub:q.subject + ' • ' + q.mode, icon:'psychology', iconBg:'bg-blue-100 text-blue-600', id:q._id })),
+      ...data.recent_questions.map(q => ({ type:'question', label:q.question, sub:q.subject + ' • ' + q.mode, icon:'psychology', iconBg:'bg-blue-100 text-blue-600', id:q.id })),
       ...data.recent_documents.map(d => ({ type:'doc', label:d.filename, sub:'Uploaded • ' + d.file_type, icon:'picture_as_pdf', iconBg:'bg-red-100 text-red-600', id:d.doc_id })),
     ].slice(0,5);
 

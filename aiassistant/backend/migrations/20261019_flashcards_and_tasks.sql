@@ -26,6 +26,17 @@ create policy "Flashcards are server managed"
     on public.flashcards for all to anon, authenticated
     using (false) with check (false);
 
+create table if not exists public.study_plans (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    title text not null,
+    subject text not null,
+    exam_date date not null,
+    notes text not null default '',
+    completed boolean not null default false,
+    created_at timestamptz not null default now()
+);
+
 alter table public.study_plans add column if not exists priority text not null default 'medium';
 alter table public.study_plans add column if not exists estimated_minutes integer not null default 30;
 alter table public.study_plans add column if not exists topic text not null default '';

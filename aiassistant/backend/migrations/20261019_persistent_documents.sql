@@ -53,10 +53,12 @@ create index if not exists quiz_attempts_user_created_idx
 
 do $$
 begin
-    if to_regclass('public.document_chunk') is null
-       and to_regclass('public.document_chunks') is not null then
+    if to_regclass('public.document_chunks') is not null
+       and to_regclass('public.document_chunk') is not null then
         raise exception
-            'Found legacy public.document_chunks; inspect it and set DOCUMENT_CHUNKS_TABLE or migrate deliberately before applying this migration';
+            'Both public.document_chunk and public.document_chunks exist; resolve manually before applying this migration';
+    elsif to_regclass('public.document_chunk') is not null then
+        alter table public.document_chunk rename to document_chunks;
     end if;
 end;
 $$;
@@ -75,7 +77,7 @@ begin
 end;
 $$;
 
-create table if not exists public.document_chunk (
+create table if not exists public.document_chunks (
     id uuid primary key default gen_random_uuid(),
     document_id uuid not null,
     user_id uuid not null,
@@ -83,31 +85,14 @@ create table if not exists public.document_chunk (
     content text not null,
     created_at timestamptz not null default now(),
     unique (document_id, chunk_index),
-    constraint document_chunk_document_owner_fkey
+    constraint document_chunks_document_owner_fkey
         foreign key (document_id, user_id)
         references public.documents(id, user_id)
         on delete cascade
 );
 
-do $$
-begin
-    if not exists (
-        select 1
-        from pg_constraint
-        where conname = 'document_chunk_document_owner_fkey'
-          and conrelid = 'public.document_chunk'::regclass
-    ) then
-        alter table public.document_chunk
-            add constraint document_chunk_document_owner_fkey
-            foreign key (document_id, user_id)
-            references public.documents(id, user_id)
-            on delete cascade;
-    end if;
-end;
-$$;
-
-create index if not exists document_chunk_user_document_idx
-    on public.document_chunk(user_id, document_id, chunk_index);
+create index if not exists document_chunks_user_document_idx
+    on public.document_chunks(user_id, document_id, chunk_index);
 
 -- The application accesses Storage through the trusted Flask service key.
 -- These policies keep the private bucket closed to direct public clients.
@@ -132,7 +117,7 @@ begin
         'study_plans',
         'quiz_sessions',
         'quiz_attempts',
-        'document_chunk'
+        'document_chunks'
     ]
     loop
         if to_regclass(format('public.%I', table_name)) is not null then
@@ -146,9 +131,9 @@ $$;
 -- Custom Flask JWTs are not Supabase Auth JWTs, so auth.uid() policies would
 -- not authorize this application. The service-role client is the only data
 -- access path; direct API roles are denied by both grants and RLS.
-drop policy if exists "Document chunks are server managed" on public.document_chunk;
+drop policy if exists "Document chunks are server managed" on public.document_chunks;
 create policy "Document chunks are server managed"
-    on public.document_chunk
+    on public.document_chunks
     for all
     to anon, authenticated
     using (false)

@@ -94,6 +94,13 @@ does not drop or rewrite existing records. The API routes are `/api/flashcards`,
 `/api/focus-sessions`. The focus page is bundled at
 `frontend/assets/focus_exam_mate/code.html`.
 
+For a production schema preflight, run
+`backend/migrations/verify_exam_mate_schema.sql`. If it reports only
+`document_chunks` (and not `document_chunk`), the backend is already aligned
+with the required relation. If it reports only `document_chunk`, review and
+run `backend/migrations/20261019_reconcile_document_chunks.sql`, then run the
+verification script again and confirm the PostgREST schema cache reload.
+
 ## 📜 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 

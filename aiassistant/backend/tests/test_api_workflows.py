@@ -129,7 +129,7 @@ class FakeDatabase:
         self.rows = {
             "users": [],
             "documents": [],
-            "document_chunk": [],
+            "document_chunks": [],
             "questions": [],
             "quiz_sessions": [],
             "quiz_attempts": [],
@@ -181,7 +181,7 @@ class ApiWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(self.db.rows["documents"]), 1)
-        self.assertEqual(len(self.db.rows["document_chunk"]), 1)
+        self.assertEqual(len(self.db.rows["document_chunks"]), 1)
         self.assertTrue(self.db.rows["documents"][0]["storage_path"].startswith("user-a/"))
 
     def test_document_delete_requires_ownership_and_removes_storage(self):
@@ -195,6 +195,17 @@ class ApiWorkflowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.db.storage.deleted, ["user-a/doc/file.txt"])
         self.assertEqual(self.db.rows["documents"], [])
+
+    def test_document_chunk_queries_use_plural_relation(self):
+        self.assertEqual(app_module.DOCUMENT_CHUNKS_TABLE, "document_chunks")
+        self.db.rows["document_chunks"].append({
+            "document_id": "doc-a",
+            "user_id": "user-a",
+            "chunk_index": 0,
+            "content": "algebra equations",
+        })
+        app_module._load_persistent_context("user-a", "doc-a")
+        self.assertEqual(len(self.db.rows["document_chunks"]), 1)
 
     @patch.object(app_module, "generate_quiz", return_value={
         "title": "Algebra",

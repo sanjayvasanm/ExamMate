@@ -55,7 +55,7 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 # ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-DOCUMENT_CHUNKS_TABLE = os.environ.get("DOCUMENT_CHUNKS_TABLE", "document_chunk")
+DOCUMENT_CHUNKS_TABLE = os.environ.get("DOCUMENT_CHUNKS_TABLE", "document_chunks")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     import sys

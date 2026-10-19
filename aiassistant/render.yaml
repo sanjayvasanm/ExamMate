@@ -20,7 +20,7 @@ services:
       - key: SUPABASE_STORAGE_BUCKET
         value: exam-documents
       - key: DOCUMENT_CHUNKS_TABLE
-        value: document_chunk
+        value: document_chunks
       - key: CORS_ORIGINS
         sync: false # Set to the deployed Vercel origin, e.g. https://exam-mate.vercel.app
       - key: ENVIRONMENT

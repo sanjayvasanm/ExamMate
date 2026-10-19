@@ -7,7 +7,7 @@ SELECT table_name, column_name, data_type, udt_name, is_nullable
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND table_name IN (
-      'users', 'documents', 'document_chunk', 'study_plans',
+      'users', 'documents', 'document_chunks', 'study_plans',
       'quiz_sessions', 'quiz_attempts'
   )
 ORDER BY table_name, ordinal_position;
@@ -16,7 +16,7 @@ ORDER BY table_name, ordinal_position;
 -- either one. Both existing at once requires manual resolution.
 SELECT
     to_regclass('public.document_chunk') AS singular_table,
-    to_regclass('public.document_chunks') AS legacy_plural_table;
+    to_regclass('public.document_chunks') AS expected_plural_table;
 
 -- Existing primary keys and foreign keys.
 SELECT
@@ -35,7 +35,7 @@ LEFT JOIN information_schema.constraint_column_usage AS ccu
    AND tc.table_schema = ccu.table_schema
 WHERE tc.table_schema = 'public'
   AND tc.table_name IN (
-      'users', 'documents', 'document_chunk', 'study_plans',
+      'users', 'documents', 'document_chunks', 'study_plans',
       'quiz_sessions', 'quiz_attempts'
   )
   AND tc.constraint_type IN ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE')
@@ -51,7 +51,7 @@ SELECT
 FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename IN (
-      'users', 'documents', 'document_chunk', 'study_plans',
+      'users', 'documents', 'document_chunks', 'study_plans',
       'quiz_sessions', 'quiz_attempts'
   )
 ORDER BY tablename;
@@ -60,7 +60,7 @@ ORDER BY tablename;
 SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
 FROM pg_policies
 WHERE (schemaname = 'public' AND tablename IN (
-    'users', 'documents', 'document_chunk', 'study_plans',
+    'users', 'documents', 'document_chunks', 'study_plans',
     'quiz_sessions', 'quiz_attempts'
 ))
    OR (schemaname = 'storage' AND tablename = 'objects')
@@ -83,16 +83,16 @@ declare
     mismatch_count bigint;
     orphan_count bigint;
 begin
-    if to_regclass('public.document_chunk') is null then
-        raise notice 'document_chunk is missing';
+    if to_regclass('public.document_chunks') is null then
+        raise notice 'document_chunks is missing';
     else
         execute $query$
             select count(*)
-            from public.document_chunk as dc
+            from public.document_chunks as dc
             join public.documents as d on d.id = dc.document_id
             where dc.user_id is distinct from d.user_id
         $query$ into mismatch_count;
-        raise notice 'document_chunk owner mismatches: %', mismatch_count;
+        raise notice 'document_chunks owner mismatches: %', mismatch_count;
     end if;
 
     if to_regclass('public.study_plans') is null then

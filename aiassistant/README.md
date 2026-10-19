@@ -56,13 +56,14 @@ python app.py
 
 The migration is additive and must be reviewed before running against any
 production Supabase project. It creates a private Storage bucket, persistent
-`document_chunk`, `study_plans`, `quiz_sessions`, and `quiz_attempts` tables.
+`document_chunks`, `study_plans`, `quiz_sessions`, and `quiz_attempts` tables.
 The Flask backend stores uploaded documents in that bucket and reconstructs its
 in-memory TF-IDF index from persisted chunks after restart. No browser code
-receives the service-role key. The live schema uses the singular
-`document_chunk` table name; set `DOCUMENT_CHUNKS_TABLE=document_chunk` in
-Render (the backend defaults to this value). Older installations that still
-use `document_chunks` can set that variable explicitly until migrated.
+receives the service-role key. The backend defaults to the plural `document_chunks` relation because that is
+the production relation reported by PostgREST. Set `DOCUMENT_CHUNKS_TABLE` only
+if your verified schema deliberately uses another compatible relation.
+Run `backend/migrations/verify_exam_mate_schema.sql` before applying the
+reconciliation migration.
 
 If PostgREST reports `PGRST205` after the tables are created, refresh its
 schema cache from the Supabase SQL editor:

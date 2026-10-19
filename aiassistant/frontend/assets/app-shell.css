@@ -151,3 +151,204 @@ details summary::marker { color: var(--em-brand); }
     transition-duration: .01ms !important;
   }
 }
+
+/* Route compositions: these intentionally change page structure, not just color. */
+body[data-screen="login"], body[data-screen="signup"] {
+  background: #09131f !important;
+  overflow-x: hidden;
+}
+body[data-screen="login"]::before, body[data-screen="signup"]::before {
+  content: "LEARN WITH CLARITY\A\A Turn scattered notes into a confident exam plan.";
+  white-space: pre-wrap;
+  position: fixed;
+  inset: 0 50% 0 0;
+  display: flex;
+  align-items: center;
+  padding: 8vw;
+  color: #d8f8e9;
+  font-size: clamp(2rem, 4vw, 4.8rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -.06em;
+  background: radial-gradient(circle at 25% 35%, rgba(16,185,129,.32), transparent 35%), #10283a;
+}
+body[data-screen="login"] > main, body[data-screen="signup"] > main {
+  margin-left: 50%;
+  max-width: 560px !important;
+  min-height: 100vh;
+  padding: 10vh 7vw 6vh !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+body[data-screen="login"] > main > div:first-child,
+body[data-screen="signup"] > main > div:first-child {
+  align-items: flex-start !important;
+  margin-bottom: 32px !important;
+}
+body[data-screen="login"] .glass-panel, body[data-screen="signup"] .glass-panel {
+  border-radius: 28px !important;
+  background: #fff !important;
+  padding: 38px !important;
+}
+body[data-screen="login"] .glass-panel h2, body[data-screen="signup"] .glass-panel h2,
+body[data-screen="login"] .glass-panel p, body[data-screen="signup"] .glass-panel p {
+  color: var(--em-ink) !important;
+}
+body[data-screen="login"] .glass-panel input, body[data-screen="signup"] .glass-panel input {
+  background: #f7f9fc !important;
+  color: var(--em-ink) !important;
+}
+
+body[data-screen="dashboard"] { background: #f4f7f5 !important; }
+body[data-screen="dashboard"] main { max-width: 1320px; padding-top: 112px !important; }
+body[data-screen="dashboard"] main > section:first-child {
+  min-height: 360px;
+  display: flex;
+  align-items: flex-end;
+  padding: 52px !important;
+  background: linear-gradient(120deg,#102d30 0%,#0d1424 58%,#1d4d4b 100%) !important;
+  border-radius: 34px !important;
+}
+body[data-screen="dashboard"] main > section:first-child h1 {
+  max-width: 620px;
+  font-size: clamp(2.6rem, 5vw, 5.2rem) !important;
+  line-height: .98;
+}
+body[data-screen="dashboard"] main > section:nth-child(2) {
+  margin-left: 12%;
+  margin-right: 12%;
+  margin-top: -42px;
+  position: relative;
+  z-index: 2;
+  border-radius: 22px !important;
+}
+body[data-screen="dashboard"] main > div.grid {
+  grid-template-columns: 1.2fr .9fr .9fr !important;
+}
+body[data-screen="dashboard"] main > div.grid > div {
+  min-height: 250px;
+  border-radius: 26px !important;
+  padding: 30px !important;
+}
+
+body[data-screen="upload"] main { max-width: 1280px; }
+body[data-screen="upload"] main > div.grid { grid-template-columns: minmax(0,1.5fr) minmax(280px,.7fr) !important; }
+body[data-screen="upload"] #dropZone > div:last-child {
+  min-height: 330px;
+  border: 0 !important;
+  border-radius: 28px !important;
+  background: linear-gradient(135deg,#e5f8ee,#fff 62%) !important;
+  align-items: flex-start;
+  text-align: left;
+  padding: 42px !important;
+}
+body[data-screen="upload"] #dropZone .w-20 { width: 64px; height: 64px; }
+body[data-screen="upload"] #docList { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+
+body[data-screen="ask"] main, body[data-screen="answer"] main {
+  max-width: 1280px !important;
+  padding-top: 52px !important;
+}
+body[data-screen="ask"] main > div.grid { grid-template-columns: minmax(0,1fr) 330px !important; align-items: start; }
+body[data-screen="ask"] #questionInput { min-height: 420px !important; font-size: 1.25rem; }
+body[data-screen="ask"] main > div.grid > div:first-child { min-width: 0; }
+body[data-screen="ask"] main > div.grid > div:last-child { position: sticky; top: 96px; }
+body[data-screen="answer"] main > div { max-width: 920px; margin: 0 auto; }
+
+body[data-screen="quiz"] main { max-width: 980px; }
+body[data-screen="quiz"] #quiz > article {
+  border-left: 5px solid var(--em-brand) !important;
+  border-radius: 20px !important;
+  padding: 28px !important;
+}
+body[data-screen="quiz"] #quiz label {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  border-radius: 14px !important;
+  cursor: pointer;
+}
+body[data-screen="quiz"] #quiz label:has(input:checked) {
+  background: var(--em-brand-soft) !important;
+  border-color: var(--em-brand) !important;
+}
+body[data-screen="quiz"] #result { font-size: 1.05rem; }
+
+body[data-screen="planner"] main { max-width: 1240px; }
+body[data-screen="planner"] main > div:first-child {
+  padding: 44px;
+  border-radius: 30px;
+  background: linear-gradient(120deg,#e5f8ee,#fff 55%);
+}
+body[data-screen="planner"] main > div.grid { grid-template-columns: 380px minmax(0,1fr) !important; }
+body[data-screen="planner"] #plans { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+body[data-screen="planner"] #tasks { grid-template-columns: repeat(2,minmax(0,1fr)); }
+
+body[data-screen="flashcards"] main { max-width: 1040px; }
+body[data-screen="flashcards"] #cards { grid-template-columns: repeat(3,minmax(0,1fr)); }
+body[data-screen="flashcards"] #cards article {
+  min-height: 310px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid #dce9e2;
+  background: linear-gradient(145deg,#fff,#f0faf5) !important;
+  border-radius: 26px !important;
+  padding: 28px !important;
+}
+body[data-screen="flashcards"] #cards article h2 { font-size: 1.4rem; line-height: 1.2; }
+
+body[data-screen="focus"] { background: #08121c !important; }
+body[data-screen="focus"] main { max-width: 900px; color: #fff; }
+body[data-screen="focus"] main > p, body[data-screen="focus"] main > h1 { color: #fff !important; }
+body[data-screen="focus"] main > section:first-of-type {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  background: radial-gradient(circle at 50% 40%,#164b45,#0d1424 62%) !important;
+  border-radius: 36px !important;
+}
+body[data-screen="focus"] #timer { font-size: clamp(5rem,15vw,11rem) !important; letter-spacing: -.09em; }
+body[data-screen="focus"] main > section:last-of-type { background: #fff !important; }
+
+body[data-screen="history"] { background: #0d1424 !important; }
+body[data-screen="history"] main { max-width: 1120px; }
+body[data-screen="history"] #historyList {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px;
+}
+
+body[data-screen="profile"] main { max-width: 1180px; }
+body[data-screen="profile"] main > section:first-child {
+  min-height: 310px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 34px !important;
+  background: linear-gradient(120deg,#102d30,#0d1424) !important;
+}
+body[data-screen="profile"] main > div.grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
+
+@media (max-width: 800px) {
+  body[data-screen="login"]::before, body[data-screen="signup"]::before { display: none; }
+  body[data-screen="login"] > main, body[data-screen="signup"] > main {
+    margin: 0; max-width: 560px !important; padding: 7vh 20px 4vh !important;
+  }
+  body[data-screen="login"] .glass-panel, body[data-screen="signup"] .glass-panel { padding: 24px !important; }
+  body[data-screen="dashboard"] main > section:first-child { min-height: 460px; padding: 28px !important; }
+  body[data-screen="dashboard"] main > section:nth-child(2) { margin-left: 0; margin-right: 0; }
+  body[data-screen="dashboard"] main > div.grid,
+  body[data-screen="upload"] main > div.grid,
+  body[data-screen="ask"] main > div.grid,
+  body[data-screen="planner"] main > div.grid,
+  body[data-screen="profile"] main > div.grid { grid-template-columns: 1fr !important; }
+  body[data-screen="ask"] main > div.grid > div:last-child { position: static; }
+  body[data-screen="upload"] #docList,
+  body[data-screen="planner"] #plans,
+  body[data-screen="planner"] #tasks,
+  body[data-screen="flashcards"] #cards,
+  body[data-screen="history"] #historyList { grid-template-columns: 1fr; }
+}

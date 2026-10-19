@@ -92,6 +92,8 @@ function showToast(msg, type = 'error') {
 }
 
 function enhanceShell() {
+  const screen = window.location.pathname.split('/').filter(Boolean).find(part => part.includes('_exam_mate'));
+  if (screen) document.body.dataset.screen = screen.replace('_exam_mate', '');
   document.querySelectorAll('header').forEach(header => {
     header.setAttribute('role', 'banner');
     const brand = header.querySelector('h1, [data-brand]');

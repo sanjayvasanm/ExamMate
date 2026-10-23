@@ -251,23 +251,26 @@ function renderHistory(items) {
         </div>`;
     grpItems.forEach(item => {
       const icon = subjectIcons[item.subject] || 'psychology';
+      const safeId = escapeHtml(item.id);
+      const safeQuestion = encodeURIComponent(item.question || '');
+      const safeSubject = escapeHtml(item.subject || 'General');
       const modeColor = item.mode === 'exam' ? 'text-orange-400' : item.mode === 'beginner' ? 'text-blue-400' : 'text-[#008A3F]';
       html += `
-        <div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]" onclick="openDetail('${item.id}','${encodeURIComponent(item.question)}','${item.subject}')">
+        <div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]" onclick="openDetail('${safeId}','${safeQuestion}','${safeSubject}')">
           <div class="flex justify-between items-start mb-3">
             <div class="flex items-center gap-2">
               <div class="w-8 h-8 rounded-lg bg-[#008A3F]/10 flex items-center justify-center">
                 <span class="material-symbols-outlined text-[#008A3F] text-lg">${icon}</span>
               </div>
-              <span class="text-[10px] font-bold text-[#10B981] uppercase tracking-wider">${item.subject}</span>
+              <span class="text-[10px] font-bold text-[#10B981] uppercase tracking-wider">${safeSubject}</span>
             </div>
-            <span class="text-xs text-slate-500">${item.time_label}</span>
+            <span class="text-xs text-slate-500">${escapeHtml(item.time_label)}</span>
           </div>
-          <h3 class="text-white font-semibold text-base mb-2 group-hover:text-[#008A3F] transition-colors line-clamp-2">${item.question}</h3>
+          <h3 class="text-white font-semibold text-base mb-2 group-hover:text-[#008A3F] transition-colors line-clamp-2">${escapeHtml(item.question)}</h3>
           <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
             <div class="flex gap-2">
-              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium text-slate-400 border border-white/5 capitalize">${item.mode}</span>
-              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium ${modeColor} border border-white/5">${item.marks} Marks</span>
+              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium text-slate-400 border border-white/5 capitalize">${escapeHtml(item.mode)}</span>
+              <span class="px-2 py-1 rounded-md bg-slate-800 text-[10px] font-medium ${modeColor} border border-white/5">${escapeHtml(item.marks)} Marks</span>
             </div>
             <span class="material-symbols-outlined text-slate-500 group-hover:text-[#008A3F] group-hover:translate-x-1 transition-all">arrow_forward</span>
           </div>

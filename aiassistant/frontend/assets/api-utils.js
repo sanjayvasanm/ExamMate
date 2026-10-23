@@ -5,9 +5,8 @@
  */
 const getApiUrl = () => {
   const override = localStorage.getItem('em_api_override');
-  if (override) return override;
-
-  return window.EXAM_MATE_API_URL || 'https://exam-mate-backend-w5t6.onrender.com/api';
+  const configuredUrl = override || window.EXAM_MATE_API_URL || 'https://exam-mate-backend-w5t6.onrender.com/api';
+  return configuredUrl.replace(/\/+$/, '');
 };
 
 const API = getApiUrl();
@@ -42,7 +41,9 @@ async function apiFetch(url, options = {}) {
     });
 
     if (res.status === 401) {
-      localStorage.clear();
+      localStorage.removeItem('em_token');
+      localStorage.removeItem('em_user');
+      sessionStorage.removeItem('ai_answer');
       // Use relative path for login redirect
       const currentPath = window.location.pathname;
       if (!currentPath.includes('login_exam_mate')) {
@@ -57,6 +58,18 @@ async function apiFetch(url, options = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function apiErrorMessage(response, fallback = 'Something went wrong') {
+  if (!response) return fallback;
+  try {
+    const body = await response.clone().json();
+    if (body && typeof body.message === 'string' && body.message.trim()) return body.message;
+    if (body && typeof body.error === 'string' && body.error.trim()) return body.error;
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) console.warn('[apiErrorMessage] Could not read error response:', error);
+  }
+  return `${fallback} (${response.status})`;
 }
 
 function navigate(page) {
@@ -110,6 +123,7 @@ document.addEventListener('DOMContentLoaded', enhanceShell);
 // Global exposure
 window.API = API;
 window.apiFetch = apiFetch;
+window.apiErrorMessage = apiErrorMessage;
 window.getApiUrl = getApiUrl;
 window.navigate = navigate;
 window.showToast = showToast;

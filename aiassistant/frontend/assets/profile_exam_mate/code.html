@@ -162,14 +162,14 @@
   <div class="flex flex-col md:flex-row items-center justify-between gap-6 p-8 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50">
     <div>
       <h4 class="font-bold text-lg text-[#0D0C22]">Account Actions</h4>
-      <p class="text-sm text-slate-500">Sign out of your account or delete your data permanently.</p>
+      <p class="text-sm text-slate-500">Sign out securely. Account deletion is not currently available.</p>
     </div>
     <div class="flex gap-4 w-full md:w-auto">
       <button onclick="handleLogout()" class="flex-1 md:flex-none px-6 py-3 border border-slate-300 rounded-xl font-bold text-[#0D0C22] hover:bg-white transition-colors flex items-center gap-2">
         <span class="material-symbols-outlined text-sm">logout</span> Logout
       </button>
-      <button onclick="confirmDelete()" class="flex-1 md:flex-none px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors flex items-center gap-2">
-        <span class="material-symbols-outlined text-sm">delete_forever</span> Delete Account
+      <button onclick="confirmDelete()" class="flex-1 md:flex-none px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">
+        <span class="material-symbols-outlined text-sm">info</span> Account deletion unavailable
       </button>
     </div>
   </div>
@@ -269,9 +269,7 @@ function handleLogout() {
 }
 
 function confirmDelete() {
-  if (confirm('WARNING: This will permanently delete your account and all data. This cannot be undone!\n\nAre you absolutely sure?')) {
-    handleLogout(); // In a real app, call DELETE /api/auth/delete
-  }
+  showToast('Account deletion is not available yet. Your data was not changed.', 'error');
 }
 
 loadProfile();

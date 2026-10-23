@@ -184,7 +184,7 @@ def update_user_streak(user_id):
     - Last active before yesterday: Streak = 1
     """
     try:
-        res = supabase.table("users").select("study_streak", "last_active").eq("id", user_id).execute()
+        res = supabase.table("users").select("study_streak,last_active").eq("id", user_id).execute()
         if not res.data:
             return
         
@@ -359,6 +359,8 @@ def upload_file():
         return jsonify({"error": f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
 
     filename = secure_filename(file.filename)
+    if not filename or "." not in filename:
+        return jsonify({"error": "The uploaded filename is invalid"}), 400
     doc_id = str(uuid.uuid4())
     ext = filename.rsplit(".", 1)[1].lower()
     storage_path = _storage_path(request.user_id, doc_id, filename)
@@ -531,10 +533,14 @@ def ask_question():
                 if not owned_doc.data:
                     return jsonify({"error": "Document not found"}), 404
             except ValueError:
-                print(f"[API Warning] Invalid document_id '{doc_id}', treating as None.")
-                doc_id = None
-        
-        marks = data.get("marks", 5)
+                return jsonify({"error": "Invalid document ID"}), 400
+
+        try:
+            marks = int(data.get("marks", 5))
+        except (TypeError, ValueError):
+            return jsonify({"error": "Marks must be a number between 1 and 100"}), 400
+        if not 1 <= marks <= 100:
+            return jsonify({"error": "Marks must be a number between 1 and 100"}), 400
 
         if not question:
             return jsonify({"error": "Question is required"}), 400
@@ -734,6 +740,18 @@ def flashcards():
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
 
+    generated_cards = generated.get("cards") if isinstance(generated, dict) else None
+    if not isinstance(generated_cards, list):
+        return jsonify({"error": "The AI provider returned an invalid flashcard set"}), 502
+    valid_cards = [
+        card for card in generated_cards
+        if isinstance(card, dict)
+        and str(card.get("front") or "").strip()
+        and str(card.get("back") or "").strip()
+    ]
+    if not valid_cards:
+        return jsonify({"error": "No usable flashcards were generated. Try a more specific topic."}), 502
+
     records = [{
         "user_id": request.user_id,
         "document_id": document_id or None,
@@ -743,9 +761,28 @@ def flashcards():
         "next_review_at": datetime.datetime.utcnow().isoformat(),
         "interval_days": 0,
         "ease_factor": 2.5,
-    } for card in generated["cards"]]
+    } for card in valid_cards[:count]]
     result = supabase.table("flashcards").insert(records).execute()
     return jsonify({"cards": result.data or records}), 201
+
+
+@app.route("/api/flashcards/<card_id>", methods=["DELETE"])
+@token_required
+def delete_flashcard(card_id):
+    try:
+        uuid.UUID(str(card_id))
+    except ValueError:
+        return jsonify({"error": "Invalid flashcard ID"}), 400
+    result = (
+        supabase.table("flashcards")
+        .delete()
+        .eq("id", card_id)
+        .eq("user_id", request.user_id)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Flashcard not found"}), 404
+    return jsonify({"message": "Flashcard deleted"})
 
 
 @app.route("/api/flashcards/<card_id>/review", methods=["POST"])

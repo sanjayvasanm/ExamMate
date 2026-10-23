@@ -143,7 +143,7 @@ WHERE table_schema = 'public'
   AND (
       (table_name = 'study_plans' AND column_name IN (
           'id', 'user_id', 'title', 'subject', 'exam_date', 'notes',
-          'completed', 'created_at'
+          'completed', 'completed_at', 'created_at'
       ))
       OR (table_name = 'quiz_sessions' AND column_name IN (
           'id', 'user_id', 'document_id', 'quiz', 'created_at'

@@ -170,6 +170,24 @@ class ApiWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_invalid_document_id_is_rejected(self):
+        response = self.client.post(
+            "/api/ask",
+            headers=self.headers,
+            json={"question": "Explain this", "document_id": "not-a-uuid"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json["error"], "Invalid document ID")
+
+    def test_invalid_marks_are_rejected_before_generation(self):
+        response = self.client.post(
+            "/api/ask",
+            headers=self.headers,
+            json={"question": "Explain this", "marks": "many"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Marks must be", response.json["error"])
+
     @patch.object(app_module, "extract_text_hybrid", return_value=[{"content": "algebra equations"}])
     @patch.object(app_module, "chunk_content", return_value=["algebra equations"])
     def test_upload_persists_storage_metadata_and_chunks(self, _chunk, _extract):
@@ -251,6 +269,13 @@ class ApiWorkflowTests(unittest.TestCase):
         self.assertEqual(self.db.rows["study_plans"][0]["title"], "New plan")
         response = self.client.patch(
             f"/api/plans/{plan_id}",
+            headers=self.headers,
+            json={"completed": True},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(self.db.rows["study_plans"][0]["completed_at"])
+        response = self.client.patch(
+            f"/api/plans/{plan_id}",
             headers={"Authorization": f"Bearer {app_module.make_token('user-b', 'b@example.com')}"},
             json={"completed": True},
         )
@@ -282,6 +307,30 @@ class ApiWorkflowTests(unittest.TestCase):
             json={"rating": "easy"},
         )
         self.assertEqual(response.status_code, 404)
+
+    @patch.object(app_module, "generate_flashcards", return_value={"cards": [{"front": "", "back": ""}]})
+    def test_flashcard_generation_rejects_empty_cards(self, _generate):
+        response = self.client.post(
+            "/api/flashcards",
+            headers=self.headers,
+            json={"topic": "Vectors", "count": 3},
+        )
+        self.assertEqual(response.status_code, 502)
+
+    def test_flashcard_delete_requires_ownership(self):
+        card_id = str(uuid.uuid4())
+        self.db.rows["flashcards"].append({
+            "id": card_id,
+            "user_id": "user-a",
+            "front": "Front",
+            "back": "Back",
+        })
+        response = self.client.delete(
+            f"/api/flashcards/{card_id}",
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.db.rows["flashcards"], [])
 
     def test_analytics_reports_real_attempts_only(self):
         self.db.rows["quiz_attempts"].extend([

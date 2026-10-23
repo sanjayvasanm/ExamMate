@@ -42,6 +42,7 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
 
   bool _serverReady = false;
   bool _serverError = false;
+  InAppWebViewController? _webViewController;
 
   @override
   void initState() {
@@ -141,10 +142,19 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0C22),
-      body: SafeArea(
-        child: InAppWebView(
+    return WillPopScope(
+      onWillPop: () async {
+        final controller = _webViewController;
+        if (controller != null && await controller.canGoBack()) {
+          await controller.goBack();
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0D0C22),
+        body: SafeArea(
+          child: InAppWebView(
           // Always start at the login page.
           // If the user is already logged in, the login page's JS will redirect
           // them to the dashboard automatically via localStorage.
@@ -164,6 +174,9 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
             // Keep mixed content blocked; localhost is loaded over HTTP already.
             mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
           ),
+          onWebViewCreated: (controller) {
+            _webViewController = controller;
+          },
           onLoadStart: (controller, url) {
             debugPrint('[WebView] Loading: $url');
           },
@@ -176,6 +189,7 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
           onReceivedHttpError: (controller, req, resp) {
             debugPrint('[WebView HTTP Error] ${resp.statusCode} - ${req.url}');
           },
+          ),
         ),
       ),
     );

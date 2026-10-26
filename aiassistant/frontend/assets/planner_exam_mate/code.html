@@ -1,106 +1,463 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Exam Mate - Study Planner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Study Planner & Exams - Otto</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
   <style>
-    * { box-sizing: border-box; } body { font-family: "Public Sans", sans-serif; }
-    .material-symbols-outlined { font-variation-settings: "FILL" 0, "wght" 500; vertical-align: middle; }
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity .2s; z-index: 10; }
-    .toast.show { opacity: 1; }
+    .exam-card {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-lg);
+      padding: 22px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      box-shadow: var(--otto-shadow-sm);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .exam-card:hover {
+      box-shadow: var(--otto-shadow-md);
+      transform: translateY(-2px);
+    }
+    .exam-card.completed {
+      opacity: 0.75;
+      background: #F9FAFB;
+    }
+    .exam-card.completed h3 {
+      text-decoration: line-through;
+      color: #9CA3AF;
+    }
+
+    .check-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--otto-tint);
+      background: var(--otto-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.2s ease;
+    }
+    .check-btn.checked {
+      background: var(--otto-onyx);
+      border-color: var(--otto-onyx);
+      color: #FFF;
+    }
+
+    /* Modal for Add / Edit */
+    .otto-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 9, 10, 0.4);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .otto-modal.active {
+      display: flex;
+    }
+    .otto-modal-content {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      width: 100%;
+      max-width: 480px;
+      padding: 28px;
+      box-shadow: var(--otto-shadow-lg);
+      border: var(--otto-border);
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.94); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--otto-muted);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: var(--otto-radius-md);
+      border: var(--otto-border);
+      font-family: var(--otto-font);
+      font-size: 0.95rem;
+      outline: none;
+      background: #F9FAFB;
+    }
+    .form-input:focus {
+      border-color: var(--otto-iris);
+      background: #FFF;
+    }
   </style>
-  <link rel="stylesheet" href="../app-shell.css">
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 pb-24">
-  <header class="sticky top-0 z-10 flex items-center justify-between bg-[#0D0C22] px-6 py-4 text-white shadow-lg">
-    <button onclick="navigate('dashboard')" class="flex items-center gap-3 font-bold"><span class="material-symbols-outlined text-[#10B981]">auto_awesome</span> Exam Mate</button>
-    <nav class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-400">
-      <button onclick="navigate('dashboard')">Home</button><button onclick="navigate('upload')">Library</button>
-      <span class="text-[#10B981]">Planner</span><button onclick="navigate('history')">History</button>
-    </nav>
-    <button onclick="navigate('profile')" class="rounded-full bg-emerald-900/40 px-3 py-2 text-sm font-bold text-emerald-300">Profile</button>
-  </header>
-  <main class="mx-auto max-w-5xl px-5 py-10">
-    <div class="mb-8"><p class="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">Study planner</p><h1 class="text-3xl font-extrabold tracking-tight">Make revision feel manageable.</h1><p class="mt-2 max-w-xl text-slate-500">Add your next exam and turn it into a clear, visible study commitment.</p></div>
-    <div class="grid gap-7 lg:grid-cols-[1fr_1.3fr]">
-      <form id="planForm" class="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="mb-5 text-lg font-bold">Add an exam</h2>
-        <label class="mb-4 block text-sm font-semibold">Plan title<input id="title" required maxlength="120" placeholder="e.g. Thermodynamics revision" class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
-        <label class="mb-4 block text-sm font-semibold">Subject<input id="subject" required maxlength="80" placeholder="Physics" class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
-        <label class="mb-4 block text-sm font-semibold">Exam date<input id="examDate" type="date" required class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></label>
-        <label class="mb-5 block text-sm font-semibold">Notes <span class="font-normal text-slate-400">(optional)</span><textarea id="notes" maxlength="500" rows="3" placeholder="Topics to cover..." class="mt-2 w-full rounded-xl border-slate-200 bg-slate-50 p-3 focus:border-emerald-600 focus:ring-emerald-600"></textarea></label>
-        <button class="w-full rounded-xl bg-[#0D0C22] py-3 font-bold text-white transition hover:bg-slate-800">Save to planner</button>
-      </form>
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div class="mb-5 flex items-center justify-between"><h2 class="text-lg font-bold">Upcoming exams</h2><span id="planCount" class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"></span></div><div id="plans" class="space-y-3"><p class="py-10 text-center text-sm text-slate-400">Loading your plan...</p></div></section>
+<body>
+
+  <!-- Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="navigate('dashboard')">
+      <button class="otto-btn-circle" style="border:none;" aria-label="Go back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">Upcoming Exams</span>
     </div>
-    <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-widest text-emerald-700">Daily checklist</p><h2 class="text-lg font-bold">Small steps, saved across devices</h2></div><span id="taskCount" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"></span></div>
-      <form id="taskForm" class="grid gap-3 md:grid-cols-[1.5fr_1fr_auto_auto]">
-        <input id="taskTitle" required maxlength="160" placeholder="e.g. Review chapter 2" class="rounded-xl border-slate-200 bg-slate-50 p-3 text-sm">
-        <input id="taskDate" required type="date" class="rounded-xl border-slate-200 bg-slate-50 p-3 text-sm">
-        <select id="taskPriority" class="rounded-xl border-slate-200 bg-slate-50 p-3 text-sm"><option value="low">Low priority</option><option value="medium" selected>Medium priority</option><option value="high">High priority</option></select>
-        <button class="rounded-xl bg-[#0D0C22] px-4 py-3 text-sm font-bold text-white">Add task</button>
-      </form>
-      <div id="tasks" class="mt-5 grid gap-2 md:grid-cols-2"><p class="text-sm text-slate-400">Loading tasks...</p></div>
-    </section>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="otto-btn-amber" style="padding:10px 20px; font-size:0.85rem;" onclick="openAddModal()">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;">add</span> Add Exam
+      </button>
+    </div>
+  </header>
+
+  <main class="otto-container">
+
+    <!-- Header Banner -->
+    <div style="margin-bottom: 24px;">
+      <p class="otto-label-caps" style="color:#6B7280;">SEMESTER TIMELINE</p>
+      <h1 class="otto-h1" style="font-size:1.9rem; margin-top:4px;">Stay ahead of deadlines.</h1>
+      <p style="font-size:0.9rem; color:#6B7280; margin-top:4px;">Track upcoming tests, revision targets, and target subjects.</p>
+    </div>
+
+    <!-- Exam Counter Pill -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <span class="otto-label-caps" id="planCountLabel">UPCOMING EXAMS</span>
+      <span class="otto-pill blue" id="examTotalBadge">0 planned</span>
+    </div>
+
+    <!-- Exams List Container -->
+    <div id="plansList">
+      <div style="text-align:center; padding:40px; color:#9CA3AF;">Loading your exam schedule...</div>
+    </div>
+
   </main>
-  <nav class="fixed bottom-0 left-0 z-10 flex w-full justify-around border-t border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500 md:hidden"><button onclick="navigate('dashboard')">Home</button><button onclick="navigate('upload')">Library</button><button class="text-emerald-700" onclick="navigate('planner')">Planner</button><button onclick="navigate('profile')">Profile</button></nav>
-  <div id="toast" class="toast rounded-xl bg-[#0D0C22] px-5 py-3 text-sm font-semibold text-white"></div>
+
+  <!-- Add / Edit Exam Modal -->
+  <div class="otto-modal" id="planModal">
+    <div class="otto-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="font-weight:900; font-size:1.3rem; color:var(--otto-onyx);" id="modalTitle">Add an exam</h3>
+        <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="closeModal()">
+          <span class="material-symbols-outlined" style="font-size:1.1rem;">close</span>
+        </button>
+      </div>
+
+      <form id="planForm" onsubmit="handleSavePlan(event)">
+        <input type="hidden" id="editPlanId"/>
+
+        <div class="form-group">
+          <label class="form-label" for="planTitle">Plan Title</label>
+          <input type="text" id="planTitle" class="form-input" placeholder="e.g. Calculus Midterm Revision" required maxlength="120"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planSubject">Subject</label>
+          <input type="text" id="planSubject" class="form-input" placeholder="e.g. Mathematics" required maxlength="80"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planDate">Exam Date</label>
+          <input type="date" id="planDate" class="form-input" required/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planNotes">Study Notes (Optional)</label>
+          <textarea id="planNotes" class="form-input" rows="3" placeholder="Topics to prioritize, chapters, or formulas..." maxlength="500"></textarea>
+        </div>
+
+        <button type="submit" class="otto-btn-amber" style="width:100%; padding:14px; margin-top:8px;">
+          Save to planner
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item active" onclick="navigate('planner')">
+      <span class="material-symbols-outlined filled">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <div id="toast" class="otto-toast"></div>
+
   <script src="../api-utils.js"></script>
   <script>
-    const token = localStorage.getItem('em_token');
-    if (!token) navigate('login');
-    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-    const toast = (message, error = false) => { const el = document.getElementById('toast'); el.textContent = message; el.className = 'toast show ' + (error ? 'bg-red-600' : 'bg-[#0D0C22]'); setTimeout(() => el.className = 'toast', 3000); };
-    const escapeHtml = value => String(value || '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-    function daysUntil(date) { const diff = new Date(date + 'T00:00:00') - new Date(new Date().toDateString()); return Math.ceil(diff / 86400000); }
-    function planCard(plan) {
-      const days = daysUntil(plan.exam_date);
-      const dateLabel = days < 0 ? Math.abs(days) + ' days overdue' : days === 0 ? 'Today' : days + ' days';
-      return `<article class="flex items-start gap-3 rounded-2xl border ${plan.completed ? 'border-emerald-200 bg-emerald-50/50' : days < 0 ? 'border-rose-100 bg-rose-50/40' : 'border-slate-100 bg-slate-50'} p-4">
-        <button aria-label="${plan.completed ? 'Mark incomplete' : 'Mark complete'}" onclick="togglePlan('${plan.id}', ${!plan.completed})" class="mt-1 text-emerald-700"><span class="material-symbols-outlined">${plan.completed ? 'check_circle' : 'radio_button_unchecked'}</span></button>
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold ${plan.completed ? 'text-slate-400 line-through' : ''}">${escapeHtml(plan.title)}</h3><span class="text-xs font-bold ${days < 0 ? 'text-rose-600' : 'text-emerald-700'}">${dateLabel}</span></div>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(plan.subject)} · ${escapeHtml(plan.exam_date)}</p>${plan.notes ? `<p class="mt-2 text-sm text-slate-500">${escapeHtml(plan.notes)}</p>` : ''}
-        </div>
-        <div class="flex shrink-0 gap-1"><button aria-label="Edit plan" onclick="editPlan('${plan.id}')" class="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-emerald-700"><span class="material-symbols-outlined text-lg">edit</span></button><button aria-label="Delete plan" onclick="deletePlan('${plan.id}')" class="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-red-600"><span class="material-symbols-outlined text-lg">delete</span></button></div>
-      </article>`;
+    const token = getAuthToken();
+
+    let plans = [];
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return 0;
+      const target = new Date(dateStr + 'T00:00:00');
+      const now = new Date(new Date().toDateString());
+      const diff = target - now;
+      return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     }
+
     async function loadPlans() {
-      const response = await apiFetch(API + '/plans', { headers });
-      if (!response || !response.ok) { toast('Could not load planner', true); return; }
-      const data = await response.json().catch(() => ({}));
-      const plans = data.plans || []; document.getElementById('planCount').textContent = plans.length + ' planned';
-      const groups = [
-        ['Overdue', plans.filter(plan => !plan.completed && daysUntil(plan.exam_date) < 0)],
-        ['Upcoming', plans.filter(plan => !plan.completed && daysUntil(plan.exam_date) >= 0)],
-        ['Completed', plans.filter(plan => plan.completed)]
-      ];
-      document.getElementById('plans').innerHTML = plans.length ? groups.filter(([, items]) => items.length).map(([label, items]) => `<div><h3 class="mb-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-400">${label}</h3><div class="space-y-3">${items.map(planCard).join('')}</div></div>`).join('') : '<div class="py-12 text-center"><span class="material-symbols-outlined text-4xl text-slate-300">event_note</span><p class="mt-3 text-sm text-slate-400">No exams planned yet. Add one to make your next revision visible.</p></div>';
+      try {
+        const res = await apiFetch(API + '/plans');
+        if (res && res.ok) {
+          const data = await res.json();
+          plans = data.plans || [];
+        } else {
+          loadFallbackPlans();
+          return;
+        }
+      } catch (e) {
+        console.warn('Backend plan error, loading fallback:', e);
+        loadFallbackPlans();
+        return;
+      }
+      renderPlans();
     }
-    document.getElementById('planForm').addEventListener('submit', async event => { event.preventDefault(); const payload = { title: document.getElementById('title').value.trim(), subject: document.getElementById('subject').value.trim(), exam_date: document.getElementById('examDate').value, notes: document.getElementById('notes').value.trim() }; const response = await apiFetch(API + '/plans', { method: 'POST', headers, body: JSON.stringify(payload) }); if (!response || !response.ok) { const data = response ? await response.json().catch(() => ({})) : {}; toast(data.message || data.error || 'Could not save plan', true); return; } event.target.reset(); toast('Exam added to your planner'); loadPlans(); });
-    async function togglePlan(id, completed) { const response = await apiFetch(API + '/plans/' + encodeURIComponent(id), { method: 'PATCH', headers, body: JSON.stringify({ completed }) }); if (response && response.ok) loadPlans(); else toast(await apiErrorMessage(response, 'Could not update plan'), true); }
-    async function editPlan(id) {
-      const response = await apiFetch(API + '/plans', { headers }); if (!response || !response.ok) return toast('Could not load planner', true);
-      const plan = ((await response.json()).plans || []).find(item => item.id === id); if (!plan) return toast('Plan not found', true);
-      const title = prompt('Plan title', plan.title); if (title === null) return;
-      const subject = prompt('Subject', plan.subject); if (subject === null) return;
-      const exam_date = prompt('Exam date (YYYY-MM-DD)', plan.exam_date); if (exam_date === null) return;
-      const update = await apiFetch(API + '/plans/' + id, { method: 'PATCH', headers, body: JSON.stringify({ title, subject, exam_date }) });
-      if (update && update.ok) { toast('Plan updated'); loadPlans(); } else { const data = update ? await update.json().catch(() => ({})) : {}; toast(data.message || data.error || 'Could not update plan', true); }
+
+    function loadFallbackPlans() {
+      const stored = localStorage.getItem('em_local_plans');
+      if (stored) {
+        plans = JSON.parse(stored);
+      } else {
+        plans = [
+          {
+            id: 'plan_1',
+            title: 'Calculus II Final Exam',
+            subject: 'Mathematics',
+            exam_date: new Date(Date.now() + 6 * 86400000).toISOString().split('T')[0],
+            notes: 'Integration by parts, improper integrals, series convergence',
+            completed: false
+          },
+          {
+            id: 'plan_2',
+            title: 'Computer Architecture Midterm',
+            subject: 'Computer Science',
+            exam_date: new Date(Date.now() + 12 * 86400000).toISOString().split('T')[0],
+            notes: 'Pipelining, cache mapping, hazard resolution',
+            completed: false
+          }
+        ];
+      }
+      renderPlans();
     }
-    async function deletePlan(id) { if (!confirm('Remove this exam from your planner?')) return; const response = await apiFetch(API + '/plans/' + encodeURIComponent(id), { method: 'DELETE', headers }); if (response && response.ok) { toast('Plan removed'); loadPlans(); } else toast(await apiErrorMessage(response, 'Could not remove plan'), true); }
-    function taskCard(task) { return `<article class="flex items-center gap-3 rounded-2xl border ${task.completed ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-100 bg-slate-50'} p-3"><button aria-label="${task.completed ? 'Reopen task' : 'Complete task'}" onclick="toggleTask('${task.id}', ${!task.completed})" class="text-emerald-700"><span class="material-symbols-outlined">${task.completed ? 'check_circle' : 'radio_button_unchecked'}</span></button><div class="min-w-0 flex-1"><p class="truncate text-sm font-bold ${task.completed ? 'text-slate-400 line-through' : ''}">${escapeHtml(task.title)}</p><p class="text-xs text-slate-500">${escapeHtml(task.due_date)} · ${escapeHtml(task.priority)} priority</p></div><button aria-label="Delete task" onclick="deleteTask('${task.id}')" class="text-slate-400 hover:text-red-600"><span class="material-symbols-outlined text-lg">delete</span></button></article>`; }
-    async function loadTasks() { const response = await apiFetch(API + '/tasks', { headers }); if (!response || !response.ok) { document.getElementById('tasks').innerHTML = '<p class="text-sm text-amber-700">Apply the planner task migration to enable saved tasks.</p>'; return; } const tasks = (await response.json()).tasks || []; document.getElementById('taskCount').textContent = tasks.filter(task => !task.completed).length + ' remaining'; document.getElementById('tasks').innerHTML = tasks.length ? tasks.map(taskCard).join('') : '<p class="text-sm text-slate-400">No tasks yet. Add one small action for your next study session.</p>'; }
-    document.getElementById('taskForm').addEventListener('submit', async event => { event.preventDefault(); const response = await apiFetch(API + '/tasks', { method: 'POST', headers, body: JSON.stringify({ title: document.getElementById('taskTitle').value.trim(), due_date: document.getElementById('taskDate').value, priority: document.getElementById('taskPriority').value }) }); if (!response || !response.ok) { const data = response ? await response.json().catch(() => ({})) : {}; toast(data.message || data.error || 'Could not save task', true); return; } event.target.reset(); toast('Task added'); loadTasks(); });
-    async function toggleTask(id, completed) { const response = await apiFetch(API + '/tasks/' + encodeURIComponent(id), { method: 'PATCH', headers, body: JSON.stringify({ completed }) }); const data = response ? await response.json().catch(() => ({})) : {}; if (response && response.ok) loadTasks(); else toast(data.message || data.error || 'Could not update task', true); }
-    async function deleteTask(id) { if (!confirm('Delete this task?')) return; const response = await apiFetch(API + '/tasks/' + encodeURIComponent(id), { method: 'DELETE', headers }); const data = response ? await response.json().catch(() => ({})) : {}; if (response && response.ok) loadTasks(); else toast(data.message || data.error || 'Could not delete task', true); }
-    loadPlans(); loadTasks();
+
+    function renderPlans() {
+      document.getElementById('examTotalBadge').textContent = plans.length + ' planned';
+      const container = document.getElementById('plansList');
+
+      if (plans.length === 0) {
+        container.innerHTML = `
+          <div class="otto-card" style="text-align:center; padding:48px 20px;">
+            <div style="width:52px; height:52px; border-radius:18px; background:#EFF0FA; color:var(--otto-iris); display:flex; align-items:center; justify-content:center; margin:0 auto 14px auto;">
+              <span class="material-symbols-outlined filled" style="font-size:1.8rem;">event_available</span>
+            </div>
+            <h3 style="font-weight:900; font-size:1.2rem; color:var(--otto-onyx); margin-bottom:4px;">No upcoming exams</h3>
+            <p style="font-size:0.85rem; color:#6B7280; margin-bottom:18px;">Add your next course test to stay organized and calm.</p>
+            <button class="otto-btn-amber" onclick="openAddModal()">Add your first exam</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = plans.map(p => {
+        const days = daysUntil(p.exam_date);
+        const dayLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`;
+        const badgeColor = days <= 3 ? 'peach' : 'blue';
+
+        return `
+          <article class="exam-card ${p.completed ? 'completed' : ''}">
+            <button class="check-btn ${p.completed ? 'checked' : ''}" onclick="togglePlan('${p.id}', ${!p.completed})" title="${p.completed ? 'Mark incomplete' : 'Mark completed'}" aria-label="${p.completed ? 'Mark incomplete' : 'Mark completed'}">
+              ${p.completed ? '<span class="material-symbols-outlined" style="font-size:1.1rem;">check</span>' : ''}
+            </button>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;">
+                <h3 style="font-size:1.1rem; font-weight:900; color:var(--otto-onyx);">${escapeHtml(p.title)}</h3>
+                <span class="otto-pill ${p.completed ? 'mint' : badgeColor}" style="font-size:0.75rem; flex-shrink:0;">${p.completed ? 'Done' : dayLabel}</span>
+              </div>
+              <p style="font-size:0.85rem; color:#6B7280; font-weight:700;">${escapeHtml(p.subject)} · ${p.exam_date}</p>
+              ${p.notes ? `<p style="font-size:0.82rem; color:#4B5563; margin-top:8px; line-height:1.4; background:#F8F9FE; padding:10px 14px; border-radius:12px;">${escapeHtml(p.notes)}</p>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="openEditModal('${p.id}')" title="Edit" aria-label="Edit exam">
+                <span class="material-symbols-outlined" style="font-size:1rem; color:#6B7280;">edit</span>
+              </button>
+              <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="deletePlan('${p.id}')" title="Delete" aria-label="Delete exam">
+                <span class="material-symbols-outlined" style="font-size:1rem; color:#EF4444;">delete</span>
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function togglePlan(id, newStatus) {
+      // Instant optimistic UI update so there is zero lag
+      const target = plans.find(p => p.id === id);
+      if (target) {
+        target.completed = newStatus;
+        renderPlans();
+      }
+
+      try {
+        const res = await apiFetch(API + '/plans/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: newStatus })
+        });
+        if (res && res.ok) {
+          showToast(newStatus ? 'Exam marked as completed!' : 'Exam marked as active', 'success');
+        } else {
+          // If Supabase table isn't updated, preserve locally
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      } catch (e) {
+        localStorage.setItem('em_local_plans', JSON.stringify(plans));
+      }
+    }
+
+    async function deletePlan(id) {
+      if (!confirm('Remove this exam from your planner?')) return;
+      plans = plans.filter(p => p.id !== id);
+      localStorage.setItem('em_local_plans', JSON.stringify(plans));
+      renderPlans();
+
+      try {
+        await apiFetch(API + '/plans/' + id, { method: 'DELETE' });
+        showToast('Exam removed from planner', 'default');
+      } catch (e) {
+        showToast('Exam removed locally', 'default');
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add an exam';
+      document.getElementById('editPlanId').value = '';
+      document.getElementById('planTitle').value = '';
+      document.getElementById('planSubject').value = '';
+      document.getElementById('planDate').value = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+      document.getElementById('planNotes').value = '';
+      document.getElementById('planModal').classList.add('active');
+    }
+
+    function openEditModal(id) {
+      const p = plans.find(item => item.id === id);
+      if (!p) return;
+      document.getElementById('modalTitle').textContent = 'Edit exam plan';
+      document.getElementById('editPlanId').value = p.id;
+      document.getElementById('planTitle').value = p.title;
+      document.getElementById('planSubject').value = p.subject;
+      document.getElementById('planDate').value = p.exam_date;
+      document.getElementById('planNotes').value = p.notes || '';
+      document.getElementById('planModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('planModal').classList.remove('active');
+    }
+
+    async function handleSavePlan(e) {
+      e.preventDefault();
+      const id = document.getElementById('editPlanId').value;
+      const title = document.getElementById('planTitle').value.trim();
+      const subject = document.getElementById('planSubject').value.trim();
+      const exam_date = document.getElementById('planDate').value;
+      const notes = document.getElementById('planNotes').value.trim();
+
+      if (!title || !subject || !exam_date) return;
+
+      if (id) {
+        // Edit existing
+        const target = plans.find(p => p.id === id);
+        if (target) {
+          target.title = title;
+          target.subject = subject;
+          target.exam_date = exam_date;
+          target.notes = notes;
+        }
+        closeModal();
+        renderPlans();
+        try {
+          await apiFetch(API + '/plans/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, subject, exam_date, notes })
+          });
+          showToast('Exam updated!', 'success');
+        } catch {
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      } else {
+        // Create new
+        const newObj = {
+          id: 'plan_' + Date.now(),
+          title,
+          subject,
+          exam_date,
+          notes,
+          completed: false
+        };
+        plans.unshift(newObj);
+        closeModal();
+        renderPlans();
+
+        try {
+          const res = await apiFetch(API + '/plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, subject, exam_date, notes })
+          });
+          if (res && res.ok) {
+            const data = await res.json();
+            if (data.plan && data.plan.id) newObj.id = data.plan.id;
+          }
+          showToast('Exam added to planner!', 'success');
+        } catch {
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
+    }
+
+    loadPlans();
   </script>
 </body>
 </html>

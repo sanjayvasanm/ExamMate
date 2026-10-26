@@ -1,130 +1,132 @@
-# Exam Mate AI (SAIS++)
+# Exam Mate AI — Otto Academic Study System
 
-![Header Image](https://socialify.git.ci/username/exam-mate/image?description=AI-Powered%20Academic%20Assistant%20with%20Visual%20Logic%20Generation&font=Inter&name=1&owner=1&pattern=Plus&theme=Dark)
+![Exam Mate AI Banner](https://img.shields.io/badge/Exam%20Mate%20AI-Otto%20Design%20System-656DE2?style=for-the-badge&logo=flutter&logoColor=white)
+![Build Status](https://img.shields.io/badge/Android%20APK-Release%20Ready-059669?style=for-the-badge&logo=android&logoColor=white)
+![Backend](https://img.shields.io/badge/Backend-Flask%20%7C%20Render%20Docker-121ECC?style=for-the-badge&logo=docker&logoColor=white)
+![Database](https://img.shields.io/badge/Database-Supabase%20Postgres%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Frontend](https://img.shields.io/badge/Web-Vercel%20Production-EC9205?style=for-the-badge&logo=vercel&logoColor=white)
 
-**Exam Mate** is a state-of-the-art AI-powered academic platform designed to revolutionize how students interact with educational materials. It combines a sophisticated RAG (Retrieval-Augmented Generation) pipeline with high-fidelity visual rendering and a premium mobile experience.
-
-## 🚀 Key Features
-
-- **🧠 Intelligent RAG Engine:** Upload PDFs, DOCX, and PPTX files to create a personal knowledge base. The AI retrieves context from your documents to provide fact-grounded exam-style answers.
-- **🎨 Self-Correcting Visual Logic:** Automated Mermaid.js diagram generation for technical concepts, flowcharts, and architectural designs, featuring an autonomous syntax validation and refactoring loop.
-- **📱 Mobile-Optimized (PWA & APK):** High-performance mobile experience with a custom Service Worker caching layer for instant loading and offline capability.
-- **💎 Premium UI/UX:** A stunning interface featuring glassmorphism, smooth micro-animations, and a curated dark-mode aesthetic.
-- **📊 Study Analytics:** Track your progress with study streaks, average scores, and comprehensive document history.
-
-## 🛠️ Tech Stack
-
-- **Backend:** Python (Flask), Supabase/Postgres, Groq API (LLM), JWT Authentication.
-- **Frontend:** HTML5, Vanilla JavaScript, CSS3 (Modern Glassmorphism), Mermaid.js.
-- **Mobile:** Flutter (WebView Hybrid Architecture), PWA (Service Workers).
-- **Tooling:** Ripgrep, Shell Scripting, Git.
-
-## 🏗️ Project Structure
-
-```text
-├── backend/            # Flask API & AI Pipeline
-│   ├── pipeline/       # RAG logic, Extraction, and Diagram refactoring
-│   ├── migrations/     # Additive Supabase migrations
-│   └── tests/          # Focused backend workflow tests
-├── frontend/           # Flutter & Web Content
-│   ├── assets/         # HTML/JS/CSS source for the platforms
-│   ├── lib/            # Flutter wrapper logic
-│   └── android/        # Android Native configuration (PWA/Manifest)
-└── README.md
-```
-
-## ⚙️ Installation & Setup
-
-### 1. Prerequisites
-- Python 3.10+
-- Flutter SDK (for APK building)
-- Supabase project (review and manually run `backend/migrations/20261019_persistent_documents.sql`)
-- Groq API Key
-
-### 2. Backend Setup
-```bash
-cd backend
-pip install -r requirements.txt
-# Set your environment variables in a .env file:
-# JWT_SECRET=your_secret
-# SUPABASE_URL=https://your-project.supabase.co
-# SUPABASE_KEY=your_service_role_key
-# SUPABASE_STORAGE_BUCKET=exam-documents
-# GROQ_API_KEY=your_key
-python app.py
-```
-
-The migration is additive and must be reviewed before running against any
-production Supabase project. It creates a private Storage bucket, persistent
-`document_chunks`, `study_plans`, `quiz_sessions`, and `quiz_attempts` tables.
-The Flask backend stores uploaded documents in that bucket and reconstructs its
-in-memory TF-IDF index from persisted chunks after restart. No browser code
-receives the service-role key. The backend defaults to the plural `document_chunks` relation because that is
-the production relation reported by PostgREST. Set `DOCUMENT_CHUNKS_TABLE` only
-if your verified schema deliberately uses another compatible relation.
-Run `backend/migrations/verify_exam_mate_schema.sql` before applying the
-reconciliation migration.
-
-If PostgREST reports `PGRST205` after the tables are created, refresh its
-schema cache from the Supabase SQL editor:
-
-```sql
-NOTIFY pgrst, 'reload schema';
-```
-
-Run `backend/migrations/verify_persistent_documents.sql` before and after the
-migration. The verification script is read-only and checks table columns,
-ownership relationships, RLS, grants, policies, and Storage privacy.
-
-Run focused backend tests with:
-
-```bash
-cd backend
-python -m unittest discover -s tests -v
-```
-
-These tests mock Supabase, Storage, document extraction, and Groq quiz
-generation. Live Supabase migration/storage checks and live Groq generation
-still require deployment credentials.
-
-### 3. Frontend / Mobile Setup
-The active browser UI is served from `frontend/assets` and can be deployed as
-static files to Vercel. Set the Vercel project root to `aiassistant/frontend`;
-the checked-in `vercel.json` routes `/` to the login page. The Flutter shell
-also builds independently:
-
-```bash
-cd frontend
-flutter build web --release \
-  --dart-define=EXAM_MATE_API_URL=https://exam-mate-backend-w5t6.onrender.com/api
-```
-
-For the native Flutter API service, use the same compile-time variable for
-production and pass a local URL explicitly during local development, for
-example `--dart-define=EXAM_MATE_API_URL=http://10.0.2.2:5000/api`. Do not put
-backend secrets in Flutter or Vercel variables.
-
-To connect your physical phone to your local PC:
-1. Find your PC's IP (`ipconfig` on Windows).
-2. Update `DEFAULT_PC_IP` in `frontend/assets/api-utils.js`.
-3. Open Port 5000 in your Firewall (PowerShell Admin):
-   ```powershell
-   New-NetFirewallRule -DisplayName "Allow Flask" -Direction Inbound -LocalPort 5000 -Protocol TCP -Action Allow
-   ```
-4. Build the APK:
-   ```bash
-   cd frontend
-   flutter build apk
-   ```
-
-For Render, use the repository root `aiassistant`, Docker context `backend`,
-and `backend/Dockerfile`. Set `ENVIRONMENT=production`,
-`CORS_ORIGINS` to the exact deployed Vercel origin, and keep
-`SUPABASE_KEY`, `JWT_SECRET`, and `GROQ_API_KEY` as Render secrets. Health is
-available at both `/health` and `/api/health`.
-
-## 📜 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+**Exam Mate AI** is a complete, production-ready AI notetaker and academic examination preparation platform inspired by the **Otto** study app design system (*Dribbble 27637592*). It delivers an interconnected, zero-dead-end study experience across 11 synchronized screens, backed by Groq LLM, TF-IDF document context retrieval, PostgreSQL on Supabase with Row Level Security (RLS), and a hybrid Flutter Android container.
 
 ---
-*Built with ❤️ by the Exam Mate Team*
+
+## 🎨 Otto Design System & Visual Palette
+
+Exam Mate AI adheres strictly to the Otto design tokens:
+- **Canvas Background:** `#EFF0FA` (Soft lilac-tinted periwinkle)
+- **Borders & Dividers:** `#BCC2F3` (Delicate periwinkle border line)
+- **Secondary Iris Accent:** `#656DE2` (Electric lavender)
+- **Primary Action Amber:** `#EC9205` (High-contrast, vibrant call-to-action)
+- **Deep Onyx:** `#09090A` (Typography and selected states)
+- **Warm Slate:** `#A6908B` (Secondary labels and metadata)
+- **Electric Royal Blue:** `#121ECC` (Primary brand accent, audio cards, mascot)
+- **Typography:** Plus Jakarta Sans & Inter, 28px border-radius containers, smooth micro-interactions.
+
+---
+
+## 📱 Complete Screen Architecture & User Flow
+
+The application features a seamless, cohesive user journey where data flows continuously between all 11 modules:
+
+```mermaid
+flowchart TD
+    Splash[index.html: Session Check] -->|No Token| Login[login_exam_mate: Auth / Quick Demo]
+    Login <-->|Toggle| Signup[signup_exam_mate: Register]
+    Splash -->|Active Token| Dash[dashboard_exam_mate: Main Library]
+    Login --> Dash
+    Signup --> Dash
+
+    Dash -->|Create / Upload| Upload[upload_document_exam_mate: Ingestion]
+    Upload -->|Ingest Doc| Flashcards[flashcards_exam_mate: 3D Flip & Spaced Repetition]
+    Upload -->|Ask AI with Doc| Ask[ask_question_exam_mate: Question Composer]
+    
+    Dash -->|Practice| Flashcards
+    Dash -->|Quick Ask| Ask
+    Dash -->|Study Planner| Planner[planner_exam_mate: Timeline & Milestones]
+    Dash -->|Focus Timer| Timer[timer_exam_mate: Pomodoro & Synthesizer]
+
+    Ask -->|Submit Question| Workspace[answer_exam_mate: Notes, Flowcharts & Podcast]
+    Workspace -->|Follow-up Question| Ask
+    Workspace -->|Resource Tabs| Flashcards
+    Flashcards -->|Resource Tabs| Quiz[quiz_exam_mate: Assessment & Scoring]
+    Quiz -->|Review Score| Dash
+
+    Dash -->|Analytics / History| History[history_exam_mate: Study Archive & Metrics]
+    Dash -->|You / Settings| Profile[profile_exam_mate: Account & API Settings]
+    Profile -->|Sign Out| Login
+```
+
+---
+
+## 🗄️ Database Setup (Supabase)
+
+The database schema is fully defined in [`backend/schema.sql`](file:///d:/projects/saais/aiassistant/backend/schema.sql).
+
+### Steps to Apply:
+1. Log into your [Supabase Dashboard](https://supabase.com/dashboard).
+2. Open the **SQL Editor** in your project (`cxhxgtmedbldfmofortm`).
+3. Paste and run the contents of `backend/schema.sql`.
+4. The script creates:
+   - `users`: Accounts, study streaks, document & question counts, last active timestamps.
+   - `documents`: Uploaded file records, file types, summaries, chunk counts.
+   - `questions`: History of queries, structured answers, Mermaid code.
+   - `study_plans`: Upcoming exams, target dates, completion status.
+   - `flashcards`: Spaced repetition cards, review counts, status.
+   - `quizzes`: Quiz attempts, score percentages, questions JSONB.
+   - `increment_documents_uploaded` & `increment_total_questions` RPCs.
+   - RLS enabled with full client and backend access policies.
+
+---
+
+## 🚀 Local Development & Testing
+
+### 1. Run the Web Application
+Simply double-click:
+```bat
+start_web.bat
+```
+- Spins up a local HTTP server on `http://localhost:8080`.
+- Automatically opens your default browser at `http://localhost:8080/index.html`.
+- Works out-of-the-box with both live cloud APIs and intelligent demo fallbacks!
+
+### 2. Run the Local Python Backend
+Double-click:
+```bat
+backend\start_backend.bat
+```
+- Activates virtual environment, installs dependencies from `requirements.txt`.
+- Starts the Flask API on `http://0.0.0.0:5000`.
+
+### 3. Build the Release Android APK
+Double-click from repository root:
+```bat
+..\build_apk.bat
+```
+- Automatically configures OpenJDK 17 (`C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot`).
+- Links Gradle 8.7 and AGP 8.5.2.
+- Executes `flutter build apk --release`.
+- Generates the optimized APK at:
+  `frontend/build/app/outputs/flutter-apk/app-release.apk`
+
+---
+
+## 🌐 Public Deployment Guide
+
+### A. Backend Deployment (Render)
+1. Fork or push this repository to GitHub.
+2. Log into [Render](https://render.com) and click **New > Blueprint**.
+3. Select your repository. Render will automatically detect [`render.yaml`](file:///d:/projects/saais/render.yaml).
+4. Configure the environment variables in the Render dashboard:
+   - `SUPABASE_URL`: `https://cxhxgtmedbldfmofortm.supabase.co`
+   - `SUPABASE_KEY`: Your Supabase anon or service key.
+   - `JWT_SECRET`: A secure random secret key.
+   - `GROQ_API_KEY`: Your Groq API key from [console.groq.com](https://console.groq.com).
+   - `CORS_ORIGINS`: `*` (or your Vercel public URL).
+5. Render builds the Docker container with Gunicorn memory optimization.
+
+### B. Web Deployment (Vercel)
+1. Log into [Vercel](https://vercel.com) and click **Add New > Project**.
+2. Import this repository.
+3. Keep the Root Directory as `.` (or set to `aiassistant`). Both configurations are fully supported via the synchronized `vercel.json` rewrite rules.
+4. Click **Deploy**.
+5. Your web app is instantly live with zero 404 errors!

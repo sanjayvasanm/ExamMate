@@ -34,6 +34,7 @@ flutter:
     - assets/history_exam_mate/
     - assets/profile_exam_mate/
     - assets/planner_exam_mate/
-    - assets/quiz_exam_mate/
     - assets/flashcards_exam_mate/
-    - assets/focus_exam_mate/
+    - assets/quiz_exam_mate/
+    - assets/timer_exam_mate/
+

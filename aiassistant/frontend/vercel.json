@@ -4,7 +4,6 @@
     { "src": "assets/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/", "dest": "/assets/login_exam_mate/code.html" },
     { "src": "/(.*)", "dest": "/assets/$1" }
   ]
 }

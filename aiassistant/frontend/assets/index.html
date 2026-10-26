@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+  <title>Exam Mate AI - Otto Study App</title>
+  <link rel="stylesheet" href="otto-theme.css"/>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--otto-bg);
+      font-family: var(--otto-font);
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    .splash-card {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      border: var(--otto-border);
+      box-shadow: var(--otto-shadow-lg);
+      padding: 44px 36px;
+      max-width: 420px;
+      width: 100%;
+      animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 4px solid rgba(236, 146, 5, 0.2);
+      border-top-color: var(--otto-amber);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 20px auto 0 auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="splash-card">
+    <div style="display:inline-flex; align-items:center; justify-content:center; margin-bottom:18px;">
+      <div class="otto-mascot-avatar" style="width:72px; height:72px; font-size:2rem; box-shadow:0 10px 28px rgba(18, 30, 204, 0.35);">
+        O
+      </div>
+    </div>
+
+    <h1 style="font-size:1.8rem; font-weight:900; color:var(--otto-onyx); letter-spacing:-0.03em; margin-bottom:6px;">
+      Exam Mate AI
+    </h1>
+    <p style="font-size:0.9rem; color:#6B7280; font-weight:700; margin-bottom:20px;">
+      Your AI notetaker & exam study companion
+    </p>
+
+    <div class="spinner"></div>
+    <p style="font-size:0.8rem; color:#9CA3AF; margin-top:16px;" id="loadingStatus">
+      Loading your study space...
+    </p>
+  </div>
+
+  <script src="api-utils.js"></script>
+  <script>
+    // Seamless routing on launch
+    setTimeout(() => {
+      const token = localStorage.getItem('em_token');
+      if (token) {
+        window.location.href = 'dashboard_exam_mate/code.html';
+      } else {
+        window.location.href = 'login_exam_mate/code.html';
+      }
+    }, 400);
+  </script>
+</body>
+</html>

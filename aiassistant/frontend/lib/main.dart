@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() async {
@@ -15,14 +16,17 @@ class ExamMateApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Exam Mate',
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF0D0C22),
+        scaffoldBackgroundColor: const Color(0xFFEFF0FA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF008A3F),
-          brightness: Brightness.dark,
+          seedColor: const Color(0xFF121ECC),
+          primary: const Color(0xFF121ECC),
+          secondary: const Color(0xFFEC9205),
+          brightness: Brightness.light,
         ),
       ),
       home: const ExamMateWebHost(),
     );
+
   }
 }
 
@@ -38,11 +42,11 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
   /// Navigate to any HTML page under assets/ via the web view.
   static const List<int> _candidatePorts = [8080, 8081, 8082, 8083];
   InAppLocalhostServer? _localhostServer;
+  InAppWebViewController? _webViewController;
   int _serverPort = _candidatePorts.first;
 
   bool _serverReady = false;
   bool _serverError = false;
-  InAppWebViewController? _webViewController;
 
   @override
   void initState() {
@@ -93,18 +97,20 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
     // Loading state
     if (!_serverReady && !_serverError) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0D0C22),
+        backgroundColor: Color(0xFFEFF0FA),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(
-                  color: Color(0xFF008A3F), strokeWidth: 3),
+                  color: Color(0xFFEC9205), strokeWidth: 3.5),
               SizedBox(height: 20),
               Text(
-                'Starting Exam Mate…',
+                'Starting Otto Exam Mate…',
                 style: TextStyle(
-                    color: Color(0xFF008A3F), fontWeight: FontWeight.bold),
+                    color: Color(0xFF09090A),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -115,16 +121,16 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
     // Error state
     if (_serverError) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D0C22),
+        backgroundColor: const Color(0xFFEFF0FA),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 48),
               const SizedBox(height: 16),
               const Text('Failed to start local server',
                   style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                      color: Color(0xFF09090A), fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () {
@@ -134,7 +140,7 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
                   _startServer();
                 },
                 child: const Text('Retry',
-                    style: TextStyle(color: Color(0xFF008A3F))),
+                    style: TextStyle(color: Color(0xFFEC9205))),
               ),
             ],
           ),
@@ -142,53 +148,51 @@ class _ExamMateWebHostState extends State<ExamMateWebHost> {
       );
     }
 
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         final controller = _webViewController;
         if (controller != null && await controller.canGoBack()) {
           await controller.goBack();
-          return false;
+        } else {
+          await SystemNavigator.pop();
         }
-        return true;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0C22),
+        backgroundColor: const Color(0xFFEFF0FA),
         body: SafeArea(
           child: InAppWebView(
-          // Always start at the login page.
-          // If the user is already logged in, the login page's JS will redirect
-          // them to the dashboard automatically via localStorage.
-          initialUrlRequest: URLRequest(
-            url: WebUri(
-                'http://localhost:$_serverPort/login_exam_mate/code.html'),
-          ),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            domStorageEnabled: true,
-            databaseEnabled: true,
-            transparentBackground: true,
-            useShouldOverrideUrlLoading: false,
-            mediaPlaybackRequiresUserGesture: false,
-            allowFileAccessFromFileURLs: false,
-            allowUniversalAccessFromFileURLs: false,
-            // Keep mixed content blocked; localhost is loaded over HTTP already.
-            mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
-          ),
-          onWebViewCreated: (controller) {
-            _webViewController = controller;
-          },
-          onLoadStart: (controller, url) {
-            debugPrint('[WebView] Loading: $url');
-          },
-          onLoadStop: (controller, url) {
-            debugPrint('[WebView] Loaded: $url');
-          },
-          onConsoleMessage: (controller, msg) {
-            debugPrint('[WebView Console] ${msg.messageLevel}: ${msg.message}');
-          },
-          onReceivedHttpError: (controller, req, resp) {
-            debugPrint('[WebView HTTP Error] ${resp.statusCode} - ${req.url}');
-          },
+            initialUrlRequest: URLRequest(
+              url: WebUri(
+                  'http://localhost:$_serverPort/index.html'),
+            ),
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              databaseEnabled: true,
+              transparentBackground: true,
+              useShouldOverrideUrlLoading: false,
+              mediaPlaybackRequiresUserGesture: false,
+              allowFileAccessFromFileURLs: false,
+              allowUniversalAccessFromFileURLs: false,
+              mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
+            ),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+            },
+            onLoadStart: (controller, url) {
+              debugPrint('[WebView] Loading: $url');
+            },
+            onLoadStop: (controller, url) {
+              debugPrint('[WebView] Loaded: $url');
+            },
+            onConsoleMessage: (controller, msg) {
+              debugPrint('[WebView Console] ${msg.messageLevel}: ${msg.message}');
+            },
+            onReceivedHttpError: (controller, req, resp) {
+              debugPrint('[WebView HTTP Error] ${resp.statusCode} - ${req.url}');
+            },
           ),
         ),
       ),

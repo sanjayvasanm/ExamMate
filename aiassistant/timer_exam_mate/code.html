@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Focus Timer - Otto</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
+  <style>
+    .timer-card {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-lg);
+      padding: 40px 24px;
+      text-align: center;
+      box-shadow: var(--otto-shadow-md);
+      position: relative;
+      margin-bottom: 24px;
+    }
+    .timer-circle-wrap {
+      width: 260px;
+      height: 260px;
+      margin: 20px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle, #EFF0FA 60%, rgba(188, 194, 243, 0.4) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 8px solid var(--otto-pastel-blue);
+      box-shadow: 0 10px 30px rgba(101, 109, 226, 0.15);
+      position: relative;
+    }
+    .timer-digits {
+      font-size: 3.8rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--otto-onyx);
+      line-height: 1;
+    }
+    .mode-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .mode-tab {
+      padding: 8px 18px;
+      border-radius: var(--otto-radius-full);
+      font-size: 0.85rem;
+      font-weight: 800;
+      border: var(--otto-border);
+      background: var(--otto-white);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .mode-tab.active {
+      background: var(--otto-onyx);
+      color: #FFF;
+      border-color: var(--otto-onyx);
+    }
+    .ambient-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .ambient-chip {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-md);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ambient-chip.active {
+      border-color: var(--otto-amber);
+      background: #FEF9EE;
+      color: var(--otto-onyx);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="navigate('dashboard')">
+      <button class="otto-btn-circle" style="border:none;" aria-label="Go back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">Focus Timer</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="otto-pill amber" id="sessionStreakPill">🔥 Streak active</span>
+    </div>
+  </header>
+
+  <main class="otto-container">
+
+    <!-- Mode Selector Tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setTimerMode(25, this)">Deep Focus (25m)</button>
+      <button class="mode-tab" onclick="setTimerMode(5, this)">Short Break (5m)</button>
+      <button class="mode-tab" onclick="setTimerMode(15, this)">Long Break (15m)</button>
+    </div>
+
+    <!-- Timer Presentation Card -->
+    <div class="timer-card">
+      <p class="otto-label-caps" id="timerModeLabel">POMODORO SESSION</p>
+
+      <!-- Circular Display -->
+      <div class="timer-circle-wrap">
+        <div class="timer-digits" id="timerDisplay">25:00</div>
+        <span class="otto-label-caps" style="color:#6B7280; font-size:0.7rem; margin-top:6px;" id="statusSub">REMAINING</span>
+      </div>
+
+      <!-- Controls -->
+      <div style="display:flex; justify-content:center; gap:16px; margin-top:24px;">
+        <button class="otto-btn-amber" style="padding:16px 36px; font-size:1.1rem;" id="timerStartBtn" onclick="toggleTimer()">
+          <span class="material-symbols-outlined" id="playIcon">play_arrow</span> Start Focus
+        </button>
+        <button class="otto-btn-circle" style="width:52px; height:52px;" onclick="resetTimer()" title="Reset timer" aria-label="Reset timer">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Ambient Audio Focus Sounds -->
+    <section>
+      <p class="otto-label-caps">BACKGROUND SOUNDSCAPE</p>
+      <div class="ambient-grid">
+        <div class="ambient-chip" onclick="toggleAmbient('rain', this)">
+          <span class="material-symbols-outlined" style="color:var(--otto-iris);">water_drop</span>
+          <span>Gentle Rain</span>
+        </div>
+        <div class="ambient-chip" onclick="toggleAmbient('library', this)">
+          <span class="material-symbols-outlined" style="color:#B45309;">local_library</span>
+          <span>Silent Library</span>
+        </div>
+        <div class="ambient-chip" onclick="toggleAmbient('white', this)">
+          <span class="material-symbols-outlined" style="color:var(--otto-blue);">graphic_eq</span>
+          <span>White Noise</span>
+        </div>
+        <div class="ambient-chip" onclick="toggleAmbient('cafe', this)">
+          <span class="material-symbols-outlined" style="color:#059669;">coffee</span>
+          <span>Study Café</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item active" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined filled">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('planner')">
+      <span class="material-symbols-outlined">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <div id="toast" class="otto-toast"></div>
+
+  <script src="../api-utils.js"></script>
+  <script>
+    let timerDuration = 25 * 60;
+    let timeLeft = timerDuration;
+    let timerInterval = null;
+    let audioContext = null;
+    let ambientSource = null;
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateDisplay() {
+      document.getElementById('timerDisplay').textContent = formatTime(timeLeft);
+    }
+
+    function setTimerMode(mins, btn) {
+      document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      timerDuration = mins * 60;
+      timeLeft = timerDuration;
+      clearInterval(timerInterval);
+      timerInterval = null;
+      document.getElementById('timerStartBtn').innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start Focus';
+      document.getElementById('timerModeLabel').textContent = mins === 25 ? 'DEEP FOCUS' : 'REST & RECHARGE';
+      updateDisplay();
+    }
+
+    function toggleTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        document.getElementById('timerStartBtn').innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Resume';
+        showToast('Timer paused', 'default');
+      } else {
+        document.getElementById('timerStartBtn').innerHTML = '<span class="material-symbols-outlined">pause</span> Pause';
+        showToast('Focus session started! Stay in the zone.', 'success');
+        timerInterval = setInterval(() => {
+          if (timeLeft > 0) {
+            timeLeft--;
+            updateDisplay();
+          } else {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            showToast('🎉 Focus session completed! Great work.', 'success');
+            document.getElementById('timerStartBtn').innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start Focus';
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timeLeft = timerDuration;
+      document.getElementById('timerStartBtn').innerHTML = '<span class="material-symbols-outlined">play_arrow</span> Start Focus';
+      updateDisplay();
+      showToast('Timer reset', 'default');
+    }
+
+    // Web Audio Synthesizer for Ambient Sound
+    function toggleAmbient(type, el) {
+      const wasActive = el.classList.contains('active');
+      document.querySelectorAll('.ambient-chip').forEach(c => c.classList.remove('active'));
+
+      if (wasActive) {
+        if (ambientSource) { try { ambientSource.stop(); } catch(e){} ambientSource = null; }
+        showToast('Ambient sound stopped', 'default');
+        return;
+      }
+
+      el.classList.add('active');
+      playSynthesizedSound();
+      showToast(`Playing ${type} soundscape`, 'default');
+    }
+
+    function playSynthesizedSound() {
+      try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (ambientSource) { try { ambientSource.stop(); } catch(e){} }
+        // Pink / White noise buffer
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = (lastOut + (0.02 * white)) / 1.02;
+          lastOut = data[i];
+          data[i] *= 0.15;
+        }
+        ambientSource = audioContext.createBufferSource();
+        ambientSource.buffer = buffer;
+        ambientSource.loop = true;
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.3;
+        ambientSource.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        ambientSource.start();
+      } catch (e) {
+        console.warn('Audio synthesis note:', e);
+      }
+    }
+
+    updateDisplay();
+  </script>
+</body>
+</html>

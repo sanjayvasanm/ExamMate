@@ -19,6 +19,8 @@ GROQ_MODEL = (
     }
     else _configured_groq_model
 )
+if GROQ_API_KEY in {"your_groq_api_key_here", "your_groq_api_key", ""}:
+    GROQ_API_KEY = None
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 # ── Diagram type selection helpers ────────────────────────────────────────────

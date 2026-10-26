@@ -16,12 +16,6 @@ services:
       - key: SUPABASE_URL
         sync: false # Set your Supabase URL here
       - key: SUPABASE_KEY
-        sync: false # Set your Supabase service-role key here (server-side only)
-      - key: SUPABASE_STORAGE_BUCKET
-        value: exam-documents
-      - key: DOCUMENT_CHUNKS_TABLE
-        value: document_chunks
+        sync: false # Set your Supabase Service/Anon Key here
       - key: CORS_ORIGINS
         sync: false # Set to the deployed Vercel origin, e.g. https://exam-mate.vercel.app
-      - key: ENVIRONMENT
-        value: production

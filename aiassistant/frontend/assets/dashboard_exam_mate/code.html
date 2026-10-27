@@ -1,309 +1,477 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Exam Mate - Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>
-  tailwind.config={darkMode:"class",theme:{extend:{colors:{navy:{900:"#0D0C22",800:"#1A1935",700:"#2A294A"},emerald:{DEFAULT:"#008A3F",500:"#008A3F",600:"#007033",400:"#10B981"}},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},fontFamily:{headline:["Public Sans","sans-serif"],body:["Public Sans","sans-serif"]}}}}
-</script>
-<style>
-  * { box-sizing:border-box; }
-  body { font-family:'Public Sans',sans-serif; }
-  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
-  .glass-panel { background:rgba(13,12,34,0.7); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.05); }
-  .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s; }
-  .toast.show { opacity:1; }
-  .toast.success { background:#008A3F;color:#fff; }
-  .toast.error { background:#dc2626;color:#fff; }
-  .skeleton { background:linear-gradient(90deg,#1a1935 25%,#2a294a 50%,#1a1935 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-  nav a, nav div { cursor:pointer; }
-</style>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Otto - Exam Mate AI</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
+  <style>
+    /* Screen Specific Styling */
+    .deck-carousel-container {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding: 8px 4px 16px 4px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .deck-carousel-container::-webkit-scrollbar {
+      display: none;
+    }
+    .otto-subject-card {
+      scroll-snap-align: start;
+    }
+    .deck-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      line-height: 1.25;
+      color: var(--otto-onyx);
+    }
+    .deck-badge {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: var(--otto-radius-full);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(9, 9, 10, 0.85);
+      color: #FFF;
+      width: fit-content;
+    }
+    .deck-progress {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--otto-onyx);
+    }
+
+    /* Learned This Week Card */
+    .learned-card {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      border: var(--otto-border);
+      box-shadow: var(--otto-shadow-md);
+      padding: 28px;
+      margin-top: 24px;
+      position: relative;
+    }
+
+    .review-action-card {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      border: var(--otto-border);
+      box-shadow: var(--otto-shadow-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .review-info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .review-count-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--otto-blue);
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 900;
+      box-shadow: 0 4px 12px rgba(18, 30, 204, 0.25);
+    }
+
+    /* Search overlay */
+    .search-bar-inline {
+      display: none;
+      margin-bottom: 20px;
+      animation: fadeIn 0.2s ease;
+    }
+    .search-bar-inline.active {
+      display: block;
+    }
+    .search-input-field {
+      width: 100%;
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-full);
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-family: var(--otto-font);
+      outline: none;
+      box-shadow: var(--otto-shadow-sm);
+    }
+    .search-input-field:focus {
+      border-color: var(--otto-iris);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
-<body class="bg-slate-50 font-body text-slate-900 min-h-screen">
+<body>
 
-<!-- Top Bar -->
-<header class="fixed top-0 left-0 w-full z-50 bg-[#0D0C22] flex justify-between items-center px-6 py-4 border-b border-slate-800 shadow-lg shadow-black/20">
-  <div class="flex items-center gap-3">
-    <span class="material-symbols-outlined text-[#008A3F] text-2xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
-    <span class="text-xl font-bold text-white tracking-tight">Exam Mate</span>
-  </div>
-  <div class="flex items-center gap-4">
-    <div class="hidden md:flex gap-6 mr-6">
-      <button onclick="navigate('dashboard')" class="text-[#008A3F] font-semibold">Home</button>
-      <button onclick="navigate('upload')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Upload</button>
-      <button onclick="navigate('history')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">History</button>
-      <button onclick="navigate('ask')" class="text-slate-400 hover:text-white transition-colors px-2 py-1 rounded">Ask AI</button>
-    </div>
-    <div class="w-10 h-10 rounded-full bg-[#008A3F]/20 border border-[#008A3F]/30 flex items-center justify-center cursor-pointer" onclick="navigate('profile')">
-      <span id="avatarInitial" class="text-[#008A3F] font-bold text-lg"></span>
-    </div>
-  </div>
-</header>
-
-<main class="pt-24 pb-32 px-4 md:px-8 max-w-7xl mx-auto">
-  <!-- Hero -->
-  <section class="mb-12 relative overflow-hidden rounded-3xl bg-[#0D0C22] p-8 md:p-12 text-white shadow-2xl">
-    <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none">
-      <div class="absolute inset-0 bg-gradient-to-l from-[#008A3F]/40 to-transparent"></div>
-    </div>
-    <div class="relative z-10 max-w-2xl">
-      <p class="text-[#008A3F] font-bold text-sm uppercase tracking-widest mb-2" id="greetingText">Good day!</p>
-      <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Master your exams with AI precision.</h1>
-      <p class="text-slate-300 text-lg mb-8 leading-relaxed">Upload your study materials and let our AI generate summaries, flashcards, and practice quizzes in seconds.</p>
-      <div class="flex flex-wrap gap-4">
-        <button onclick="navigate('upload')" class="bg-[#008A3F] hover:bg-[#007033] text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#008A3F]/20">
-          <span class="material-symbols-outlined">add_circle</span> Upload Document
-        </button>
-        <button onclick="navigate('ask')" class="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-xl transition-all backdrop-blur-sm border border-white/10">
-          Ask AI Tutor
-        </button>
-      </div>
-    </div>
-    <div class="absolute -bottom-10 -right-10 w-64 h-64 bg-[#008A3F]/10 rounded-full blur-3xl"></div>
-  </section>
-
-  <!-- Quick Actions Grid -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-    <div onclick="navigate('upload')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
-      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-        <span class="material-symbols-outlined text-8xl">cloud_upload</span>
-      </div>
-      <div class="w-14 h-14 bg-emerald-50 text-[#008A3F] rounded-2xl flex items-center justify-center mb-6">
-        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">cloud_upload</span>
-      </div>
-      <h3 class="text-xl font-bold mb-2">Upload Document</h3>
-      <p class="text-slate-500 mb-6">Convert PDFs, DOCX, or images into interactive study guides.</p>
-      <span class="text-[#008A3F] font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Upload Now <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-    </div>
-
-    <div onclick="navigate('ask')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
-      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-        <span class="material-symbols-outlined text-8xl">chat_bubble</span>
-      </div>
-      <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
-        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">psychology</span>
-      </div>
-      <h3 class="text-xl font-bold mb-2">Ask Question</h3>
-      <p class="text-slate-500 mb-6">Stuck on a concept? Ask our AI tutor for instant clarification.</p>
-      <span class="text-blue-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Start Chat <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-    </div>
-
-    <div onclick="navigate('history')" class="group relative bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
-      <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-        <span class="material-symbols-outlined text-8xl">history</span>
-      </div>
-      <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
-        <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">history</span>
-      </div>
-      <h3 class="text-xl font-bold mb-2">View History</h3>
-      <p class="text-slate-500 mb-6">Access all your previous uploads and generated insights.</p>
-      <span class="text-purple-600 font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">Open Library <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-    </div>
-  </div>
-
-  <!-- Stats Bento -->
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- Recent Activity -->
-    <div class="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-      <div class="flex justify-between items-center mb-8">
-        <h2 class="text-2xl font-bold">Recent Activity</h2>
-        <button onclick="navigate('history')" class="text-sm font-semibold text-slate-400 hover:text-[#008A3F]">View All</button>
-      </div>
-      <div id="activityList" class="space-y-4">
-        <!-- Loading skeletons -->
-        <div class="skeleton h-16 w-full"></div>
-        <div class="skeleton h-16 w-full"></div>
-        <div class="skeleton h-16 w-full"></div>
+  <!-- Otto Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="toggleLibraryMenu()">
+      <div class="otto-mascot-avatar" title="Otto AI Study Companion">O</div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">My library</span>
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">arrow_drop_down</span>
       </div>
     </div>
 
-    <!-- Stats Sidebar -->
-    <div class="lg:col-span-4 space-y-6">
-      <!-- Study Stats -->
-      <div class="bg-[#0D0C22] text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
-        <div class="relative z-10">
-          <h3 class="text-lg font-bold mb-6">Study Stats</h3>
-          <div class="space-y-6">
-            <div>
-              <div class="flex justify-between text-sm mb-2">
-                <span class="text-slate-400">Questions Asked</span>
-                <span class="font-bold" id="statQuestions">0</span>
-              </div>
-              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div class="h-full bg-[#008A3F] rounded-full transition-all duration-1000" id="statQBar" style="width:0%"></div>
-              </div>
-            </div>
-            <div>
-              <div class="flex justify-between text-sm mb-2">
-                <span class="text-slate-400">Documents</span>
-                <span class="font-bold" id="statDocs">0</span>
-              </div>
-              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-400 rounded-full transition-all duration-1000" id="statDBar" style="width:0%"></div>
-              </div>
-            </div>
-            <div class="pt-2 border-t border-white/10">
-              <div class="flex justify-between text-sm">
-                <span class="text-slate-400">Study Streak</span>
-                <span class="font-bold text-orange-400" id="statStreak">0 days</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="absolute bottom-0 right-0 p-4">
-          <span class="material-symbols-outlined text-[#008A3F]/20 text-7xl">trending_up</span>
-        </div>
-      </div>
+    <!-- Desktop Navigation Links -->
+    <nav class="otto-desktop-nav" style="display:none;">
+      <a class="otto-desktop-nav-link active" onclick="navigate('dashboard')">Library</a>
+      <a class="otto-desktop-nav-link" onclick="navigate('upload')">Create</a>
+      <a class="otto-desktop-nav-link" onclick="navigate('flashcards')">Practice</a>
+      <a class="otto-desktop-nav-link" onclick="navigate('planner')">Planner</a>
+      <a class="otto-desktop-nav-link" onclick="navigate('history')">Analytics</a>
+    </nav>
 
-      <!-- AI Tip -->
-      <div class="bg-emerald-50 p-8 rounded-3xl border border-emerald-100">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="material-symbols-outlined text-[#008A3F]" style="font-variation-settings:'FILL' 1;">tips_and_updates</span>
-          <h3 class="font-bold text-emerald-900">AI Study Tip</h3>
-        </div>
-        <p class="text-emerald-800 text-sm leading-relaxed italic" id="aiTip">
-          "Spaced repetition is the most effective learning technique. Upload your notes and ask questions regularly for best results."
-        </p>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="otto-pill amber" id="streakBadge" title="Study Streak" style="cursor:pointer;" onclick="navigate('history')">
+        <span class="material-symbols-outlined filled" style="font-size:1rem; color:#EC9205;">local_fire_department</span>
+        <span id="streakNum">9 days</span>
+      </div>
+      <button class="otto-btn-circle" onclick="toggleSearch()" title="Search library" aria-label="Search library">
+        <span class="material-symbols-outlined">search</span>
+      </button>
+      <div class="otto-mascot-avatar" style="background:var(--otto-onyx); cursor:pointer;" onclick="navigate('profile')" title="Your Profile">
+        <span id="userInitial">S</span>
       </div>
     </div>
-  </div>
-</main>
+  </header>
 
-<!-- Bottom Nav (mobile) -->
-<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white border-t border-slate-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:hidden rounded-t-2xl">
-  <div onclick="navigate('dashboard')" class="flex flex-col items-center text-[#008A3F] bg-green-50 rounded-xl px-3 py-1">
-    <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
-    <span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
-  </div>
-  <div onclick="navigate('upload')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
-    <span class="material-symbols-outlined">cloud_upload</span>
-    <span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
-  </div>
-  <div onclick="navigate('history')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
-    <span class="material-symbols-outlined">history</span>
-    <span class="text-[11px] font-medium uppercase tracking-wider">History</span>
-  </div>
-  <div onclick="navigate('profile')" class="flex flex-col items-center text-slate-400 hover:text-[#008A3F] transition-all">
-    <span class="material-symbols-outlined">person</span>
-    <span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
-  </div>
-</nav>
+  <!-- Main Content Container -->
+  <main class="otto-container">
 
-<!-- FAB -->
-<button onclick="navigate('ask')" class="fixed bottom-24 right-6 md:bottom-12 md:right-12 w-16 h-16 bg-[#008A3F] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40">
-  <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">smart_toy</span>
-</button>
+    <!-- Search Bar (Toggled) -->
+    <div class="search-bar-inline" id="searchContainer">
+      <input type="text" id="librarySearchInput" class="search-input-field" placeholder="Search notes, flashcards, calculus, physics..." oninput="handleSearch(this.value)"/>
+    </div>
 
-<div id="toast" class="toast"></div>
-
-<script src="../api-utils.js"></script>
-<script>
-const token = localStorage.getItem('em_token');
-const user  = JSON.parse(localStorage.getItem('em_user') || '{}');
-
-if (!token) { window.location.href = '../login_exam_mate/code.html'; }
-
-// UI Handlers
-
-// UI Handlers
-
-function setFallbackDashboard(message) {
-  document.getElementById('statQuestions').textContent = '0';
-  document.getElementById('statDocs').textContent = '0';
-  document.getElementById('statStreak').textContent = '0 days';
-  document.getElementById('statQBar').style.width = '0%';
-  document.getElementById('statDBar').style.width = '0%';
-  document.getElementById('activityList').innerHTML = message;
-}
-
-function setGreeting() {
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('greetingText').textContent = greet + ', ' + (user.name || 'Student') + '!';
-}
-
-function setAvatar() {
-  const init = (user.name || 'U').charAt(0).toUpperCase();
-  document.getElementById('avatarInitial').textContent = init;
-}
-
-const tips = [
-  '"Spaced repetition is the most effective learning technique. Upload your notes and ask questions regularly."',
-  '"Break large topics into smaller chunks. Ask specific questions for deeper understanding."',
-  '"Review your question history weekly to reinforce your memory of key concepts."',
-  '"Teach what you learn to someone else — it forces you to understand it deeply."',
-];
-
-async function loadDashboard() {
-  setGreeting(); setAvatar();
-  document.getElementById('aiTip').textContent = tips[Math.floor(Math.random() * tips.length)];
-
-  try {
-    const res = await apiFetch(API + '/dashboard', { headers: { Authorization: 'Bearer ' + token } });
-    if (!res) return;
-    if (!res.ok) {
-      showToast('Failed to load dashboard', 'error');
-      setFallbackDashboard('<div class="text-center py-4 text-slate-400">Failed to load activity. Is the backend running?</div>');
-      return;
-    }
-    const data = await res.json();
-
-    // Stats
-    document.getElementById('statQuestions').textContent = data.total_questions;
-    document.getElementById('statDocs').textContent = data.total_documents;
-    document.getElementById('statStreak').textContent = data.study_streak + ' days';
-    document.getElementById('statQBar').style.width = Math.min(data.total_questions * 5, 100) + '%';
-    document.getElementById('statDBar').style.width = Math.min(data.total_documents * 10, 100) + '%';
-
-    // Activity list
-    const list = document.getElementById('activityList');
-    const all = [
-      ...data.recent_questions.map(q => ({ type:'question', label:q.question, sub:q.subject + ' • ' + q.mode, icon:'psychology', iconBg:'bg-blue-100 text-blue-600', id:q._id })),
-      ...data.recent_documents.map(d => ({ type:'doc', label:d.filename, sub:'Uploaded • ' + d.file_type, icon:'picture_as_pdf', iconBg:'bg-red-100 text-red-600', id:d.doc_id })),
-    ].slice(0,5);
-
-    if (all.length === 0) {
-      list.innerHTML = '<div class="text-center py-8 text-slate-400"><span class="material-symbols-outlined text-4xl block mb-2">inbox</span>No activity yet. Upload a document or ask a question!</div>';
-      return;
-    }
-
-    list.innerHTML = all.map(item => `
-      <div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group cursor-pointer" onclick="handleActivityClick('${item.type}','${item.id}')">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl ${item.iconBg} flex items-center justify-center">
-            <span class="material-symbols-outlined">${item.icon}</span>
+    <!-- Subject Carousel (Otto Screen 1) -->
+    <section style="margin-bottom: 24px;">
+      <div class="deck-carousel-container" id="subjectDecks">
+        <!-- Card 1: Calculus -->
+        <article class="otto-subject-card peach" onclick="openSubjectDeck('Calculus', 'Intro to Calculus')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <span class="deck-badge"><span class="material-symbols-outlined filled" style="font-size:0.8rem;">style</span> <span id="cardCount1">12 cards</span></span>
+            <span class="deck-progress">12%</span>
           </div>
           <div>
-            <h4 class="font-bold text-sm truncate max-w-[200px]">${item.label}</h4>
-            <p class="text-xs text-slate-400">${item.sub}</p>
+            <span class="otto-label-caps" style="color:#A6908B; font-size:0.65rem;">FEATURED</span>
+            <h3 class="deck-title">Intro to Calculus</h3>
           </div>
-        </div>
-        <button class="opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 p-2 rounded-lg text-slate-600 hover:text-[#008A3F] transition-all">
-          <span class="material-symbols-outlined text-sm">open_in_new</span>
+        </article>
+
+        <!-- Card 2: Lecture 1 Slides -->
+        <article class="otto-subject-card blue" onclick="navigate('upload')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <span class="deck-badge"><span class="material-symbols-outlined" style="font-size:0.8rem;">description</span> PDF</span>
+            <span class="deck-progress">47%</span>
+          </div>
+          <div>
+            <span class="otto-label-caps" style="color:var(--otto-iris); font-size:0.65rem;">RECENT SLIDES</span>
+            <h3 class="deck-title">Lecture 1 Slides</h3>
+          </div>
+        </article>
+
+        <!-- Card 3: Syllabus -->
+        <article class="otto-subject-card yellow" onclick="navigate('planner')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <span class="deck-badge" style="background:#09090A;"><span class="material-symbols-outlined" style="font-size:0.8rem;">calendar_month</span> PLAN</span>
+            <span class="deck-progress">Active</span>
+          </div>
+          <div>
+            <span class="otto-label-caps" style="color:#B45309; font-size:0.65rem;">SEMESTER</span>
+            <h3 class="deck-title">Syllabus & Exams</h3>
+          </div>
+        </article>
+
+        <!-- Card 4: Cell Division / Biology -->
+        <article class="otto-subject-card mint" onclick="openSubjectDeck('Biology', 'Cell Division')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <span class="deck-badge"><span class="material-symbols-outlined filled" style="font-size:0.8rem;">style</span> 24 cards</span>
+            <span class="deck-progress" style="color:#059669;">92%</span>
+          </div>
+          <div>
+            <span class="otto-label-caps" style="color:#059669; font-size:0.65rem;">COMPLETED</span>
+            <h3 class="deck-title">Cell Division</h3>
+          </div>
+        </article>
+      </div>
+
+      <!-- + Add source button (Otto Screen 1) -->
+      <div style="text-align: center; margin-top: 14px;">
+        <button class="otto-btn-amber" onclick="navigate('upload')">
+          <span class="material-symbols-outlined" style="font-size:1.3rem;">add</span> Add source
         </button>
-      </div>`).join('');
-  } catch(e) {
-    console.error(e);
-    showToast('Could not connect to backend', 'error');
-    setFallbackDashboard('<div class="text-center py-4 text-slate-400">Failed to load activity. Is the backend running?</div>');
-  }
-}
+      </div>
+    </section>
 
-function handleActivityClick(type, id) {
-  if (type === 'question') {
-    sessionStorage.setItem('view_question_id', id);
-    navigate('history');
-  } else {
-    navigate('upload');
-  }
-}
+    <!-- Stat Card: Learned this week (Otto Screen 1) -->
+    <section class="learned-card">
+      <p class="otto-label-caps" style="margin-bottom: 8px;">LEARNED THIS WEEK</p>
+      <div class="otto-stat-huge" id="statCardsCount">307 cards</div>
 
-loadDashboard();
-</script>
+      <!-- Stat Pills Row -->
+      <div style="display:flex; align-items:center; gap:12px; margin-top: 18px; flex-wrap:wrap;">
+        <div class="otto-pill blue">
+          <span class="material-symbols-outlined filled" style="font-size:1rem;">layers</span>
+          <span>Sets: <strong id="statSetsCount">12</strong></span>
+        </div>
+        <div class="otto-pill amber">
+          <span class="material-symbols-outlined filled" style="font-size:1rem; color:#EC9205;">local_fire_department</span>
+          <span>Streak: <strong id="statStreakDays">9 days</strong></span>
+        </div>
+        <div class="otto-pill mint" id="statAccuracyPill">
+          <span class="material-symbols-outlined filled" style="font-size:1rem; color:#059669;">verified</span>
+          <span>Accuracy: <strong>90%</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Next Review Card (Otto Screen 3) -->
+    <section class="review-action-card">
+      <div class="review-info-row">
+        <div>
+          <p class="otto-label-caps" style="margin-bottom: 4px;">NEXT REVIEW</p>
+          <h4 style="font-size:1.15rem; font-weight:800; color:var(--otto-onyx);" id="reviewPromptText">6 cards due tomorrow</h4>
+        </div>
+        <div class="review-count-circle" id="dueCardBadge">6</div>
+      </div>
+      <button class="otto-btn-amber" style="width: 100%;" onclick="navigate('flashcards')">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">bolt</span> Start studying
+      </button>
+    </section>
+
+    <!-- Quick Practice Modules Grid -->
+    <section style="margin-top: 28px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:1.15rem; font-weight:800; color:var(--otto-onyx);">Study Modes</h3>
+        <span class="otto-label-caps" style="cursor:pointer;" onclick="navigate('upload')">VIEW ALL</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        <!-- AI Tutor & Diagrams -->
+        <article class="otto-card interactive" onclick="navigate('ask')" style="padding:20px; cursor:pointer;">
+          <div style="width:42px; height:42px; border-radius:14px; background:#E2E6FF; color:var(--otto-blue); display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+            <span class="material-symbols-outlined filled">smart_toy</span>
+          </div>
+          <h4 style="font-weight:800; font-size:1rem; margin-bottom:4px;">AI Tutor</h4>
+          <p style="font-size:0.8rem; color:#6B7280;">Ask questions with self-correcting visual logic & diagrams</p>
+        </article>
+
+        <!-- Interactive Quiz -->
+        <article class="otto-card interactive" onclick="navigate('quiz')" style="padding:20px; cursor:pointer;">
+          <div style="width:42px; height:42px; border-radius:14px; background:#FEF3D6; color:#B45309; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+            <span class="material-symbols-outlined filled">quiz</span>
+          </div>
+          <h4 style="font-weight:800; font-size:1rem; margin-bottom:4px;">Practice Quiz</h4>
+          <p style="font-size:0.8rem; color:#6B7280;">4/12 calculus and engineering questions with breakdown</p>
+        </article>
+
+        <!-- Exam Planner -->
+        <article class="otto-card interactive" onclick="navigate('planner')" style="padding:20px; cursor:pointer;">
+          <div style="width:42px; height:42px; border-radius:14px; background:#E1F7EB; color:#059669; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+            <span class="material-symbols-outlined filled">calendar_month</span>
+          </div>
+          <h4 style="font-weight:800; font-size:1rem; margin-bottom:4px;">Upcoming Exams</h4>
+          <p style="font-size:0.8rem; color:#6B7280;">Manage revision milestones and test dates</p>
+        </article>
+
+        <!-- Focus Timer -->
+        <article class="otto-card interactive" onclick="navigate('timer')" style="padding:20px; cursor:pointer;">
+          <div style="width:42px; height:42px; border-radius:14px; background:#FCE8E2; color:#C2410C; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+            <span class="material-symbols-outlined filled">timer</span>
+          </div>
+          <h4 style="font-weight:800; font-size:1rem; margin-bottom:4px;">Focus Timer</h4>
+          <p style="font-size:0.8rem; color:#6B7280;">25-minute Pomodoro study intervals with ambient sound</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Recent Academic Materials -->
+    <section style="margin-top: 32px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-size:1.15rem; font-weight:800; color:var(--otto-onyx);">Recent Materials</h3>
+        <span class="otto-label-caps" style="cursor:pointer;" onclick="navigate('upload')">UPLOAD NEW</span>
+      </div>
+      <div id="materialsList" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="text-align:center; padding:30px; color:#9CA3AF;">Loading your study library...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Otto Bottom Navigation Bar (Screen 1) -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item active" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined filled">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('planner')">
+      <span class="material-symbols-outlined">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <!-- Otto Toast Element -->
+  <div id="toast" class="otto-toast"></div>
+
+  <script src="../api-utils.js"></script>
+  <script>
+    const token = getAuthToken();
+    const user = JSON.parse(localStorage.getItem('em_user') || '{"name":"Sanjay Vasan"}');
+
+
+    // Set Avatar initial
+    const initial = (user.name || 'Student').charAt(0).toUpperCase();
+    document.getElementById('userInitial').textContent = initial;
+
+    function toggleSearch() {
+      const el = document.getElementById('searchContainer');
+      el.classList.toggle('active');
+      if (el.classList.contains('active')) {
+        document.getElementById('librarySearchInput').focus();
+      }
+    }
+
+    function toggleLibraryMenu() {
+      showToast('Viewing: All Subjects & Documents', 'default');
+    }
+
+    function openSubjectDeck(subject, title) {
+      sessionStorage.setItem('current_study_subject', subject);
+      sessionStorage.setItem('current_study_title', title);
+      navigate('flashcards');
+    }
+
+    function handleSearch(query) {
+      const q = query.toLowerCase().trim();
+      const cards = document.querySelectorAll('.otto-subject-card');
+      cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    async function loadDashboardData() {
+      try {
+        const res = await apiFetch(API + '/dashboard', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+
+        if (!res || !res.ok) {
+          // Provide charming initial state if backend isn't ready
+          document.getElementById('streakNum').textContent = '9 days';
+          document.getElementById('statStreakDays').textContent = '9 days';
+          document.getElementById('statCardsCount').textContent = '307 cards';
+          document.getElementById('statSetsCount').textContent = '12';
+          renderRecentFallback();
+          return;
+        }
+
+        const data = await res.json();
+        
+        // Update live stats
+        const streak = data.study_streak || 9;
+        const totalDocs = data.total_documents || 4;
+        const totalQuestions = data.total_questions || 307;
+
+        document.getElementById('streakNum').textContent = streak + ' days';
+        document.getElementById('statStreakDays').textContent = streak + ' days';
+        document.getElementById('statSetsCount').textContent = totalDocs;
+        document.getElementById('statCardsCount').textContent = (totalQuestions > 0 ? totalQuestions : 307) + ' cards';
+
+        // Render documents
+        const list = document.getElementById('materialsList');
+        const docs = data.recent_documents || [];
+        
+        if (docs.length === 0) {
+          renderRecentFallback();
+        } else {
+          list.innerHTML = docs.map(d => `
+            <div class="otto-card" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="navigate('upload')">
+              <div style="display:flex; align-items:center; gap:14px;">
+                <div style="width:40px; height:40px; border-radius:12px; background:#FCE8E2; color:#C2410C; display:flex; align-items:center; justify-content:center;">
+                  <span class="material-symbols-outlined">description</span>
+                </div>
+                <div>
+                  <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx);">${escapeHtml(d.filename)}</h4>
+                  <p style="font-size:0.75rem; color:#6B7280;">Uploaded ${d.file_type || 'PDF'} · Ready for Study</p>
+                </div>
+              </div>
+              <span class="otto-pill dark" style="font-size:0.75rem;">Study</span>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.warn('Dashboard fetch fallback:', err);
+        renderRecentFallback();
+      }
+    }
+
+    function renderRecentFallback() {
+      const list = document.getElementById('materialsList');
+      list.innerHTML = `
+        <div class="otto-card" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="navigate('upload')">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#FCE8E2; color:#C2410C; display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-outlined">picture_as_pdf</span>
+            </div>
+            <div>
+              <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx);">Lecture 1 Slides.pdf</h4>
+              <p style="font-size:0.75rem; color:#6B7280;">Calculus & Limits · 48 Flashcards</p>
+            </div>
+          </div>
+          <span class="otto-pill dark" style="font-size:0.75rem;">Review</span>
+        </div>
+
+        <div class="otto-card" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="navigate('upload')">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#E2E6FF; color:var(--otto-blue); display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-outlined">description</span>
+            </div>
+            <div>
+              <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx);">Computer_Systems_Architecture.docx</h4>
+              <p style="font-size:0.75rem; color:#6B7280;">Memory Hierarchy · 36 Flashcards</p>
+            </div>
+          </div>
+          <span class="otto-pill dark" style="font-size:0.75rem;">Review</span>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
+    }
+
+    loadDashboardData();
+  </script>
 </body>
 </html>

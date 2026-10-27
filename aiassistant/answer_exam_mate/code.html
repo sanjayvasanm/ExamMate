@@ -1,191 +1,442 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Study Workspace - Otto</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    /* Resource Header Bar (Otto Screen 3) */
+    .resource-tabs {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+    }
+    .resource-tabs::-webkit-scrollbar { display: none; }
+    .resource-tab {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 10px 18px;
+      border-radius: var(--otto-radius-md);
+      background: var(--otto-white);
+      border: var(--otto-border);
+      cursor: pointer;
+      min-width: 110px;
+      transition: all 0.2s ease;
+    }
+    .resource-tab.active {
+      background: var(--otto-onyx);
+      color: #FFF;
+      border-color: var(--otto-onyx);
+      box-shadow: var(--otto-shadow-sm);
+    }
+    .resource-tab.active .subtext { color: rgba(255, 255, 255, 0.7); }
+    .resource-tab .tab-title { font-weight: 800; font-size: 0.9rem; }
+    .resource-tab .subtext { font-size: 0.7rem; color: #6B7280; }
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Exam Mate - Answer Detail</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#008A3F",
-                        navy: "#0D0C22",
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    fontFamily: {
-                        headline: ["Public Sans"],
-                        body: ["Public Sans"],
-                        label: ["Public Sans"]
-                    }
-                },
-            },
-        }
-    </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        body {
-            font-family: 'Public Sans', sans-serif;
-            background-color: #0D0C22;
-        }
-        .text-highlight {
-            color: #008A3F;
-            font-weight: 600;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-    </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
+    /* Otto Screen 5: AI Podcast Player Card */
+    .podcast-card {
+      background: var(--otto-blue);
+      border-radius: var(--otto-radius-lg);
+      padding: 28px;
+      color: #FFF;
+      margin-bottom: 28px;
+      position: relative;
+      box-shadow: 0 16px 36px rgba(18, 30, 204, 0.35);
+      overflow: hidden;
+    }
+    .podcast-card::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      right: -20%;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(101, 109, 226, 0.4) 0%, rgba(18, 30, 204, 0) 70%);
+      pointer-events: none;
+    }
+
+    /* Scrubber */
+    .audio-scrubber-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: var(--otto-radius-full);
+      position: relative;
+      cursor: pointer;
+      margin: 18px 0 8px 0;
+    }
+    .audio-scrubber-fill {
+      height: 100%;
+      background: var(--otto-amber);
+      border-radius: var(--otto-radius-full);
+      width: 40%;
+    }
+
+    /* Player controls */
+    .player-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 16px 0;
+    }
+    .play-pill-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #FFF;
+      color: var(--otto-onyx);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease;
+    }
+    .play-pill-btn:hover {
+      transform: scale(1.05);
+    }
+
+    /* Diagram Canvas */
+    .diagram-panel {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      border: var(--otto-border);
+      padding: 24px;
+      margin: 24px 0;
+      box-shadow: var(--otto-shadow-sm);
+      overflow: auto;
+      text-align: center;
+    }
+    .diagram-panel svg {
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
     }
   </style>
-  </head>
-<body class="bg-navy text-slate-200 min-h-screen pb-24">
-<!-- TopAppBar -->
-<header class="bg-[#0D0C22] dark:bg-slate-950 text-white font-sans tracking-tight docked full-width top-0 border-b border-slate-800 shadow-lg shadow-black/20 flex justify-between items-center px-6 py-4 w-full sticky z-50">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400" data-icon="auto_awesome">auto_awesome</span>
-<h1 class="text-xl font-bold text-white dark:text-slate-100">Exam Mate</h1>
-</div>
-<div class="flex items-center gap-4">
-<div class="hidden md:flex gap-6">
-<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded" href="#">History</a>
-<a class="text-slate-400 hover:bg-slate-800 transition-colors px-3 py-1 rounded" href="#">Upload</a>
-</div>
-<div class="w-10 h-10 rounded-full border-2 border-slate-700 overflow-hidden">
-<img alt="User Profile" data-alt="professional headshot of a student smiling against a neutral grey studio background with soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvVdn5BiBrIVNy6A78xzll9ikyREjhmEEQOvRoKBYrIGMIE9EKaVrRYvfzi-RXcNVXYrVqDLIdvy4tUz9KgSy-7Wn9KTIM4buMnH9tpQPpKueQy1xwKfyJE7wSUvzsRYKoguc12hh8mG7Quj6UfZsM9nU0pmrCcx1h-VEEucdHLLhjuX2uki_9HbroIEOPdKbBBbrCUkpQyWrxiUI4oEmF-alQlMK_I0T3Wo83rqddHgtRBVHQ6sTLJLwIvapHq8202n-sq9zZTDE"/>
-</div>
-</div>
-</header>
-<main class="max-w-4xl mx-auto px-6 py-12">
-<!-- Title & Breadcrumb -->
-<div class="mb-12">
-<nav class="flex items-center gap-2 text-slate-500 text-sm mb-4">
-<span>Computer Science</span>
-<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
-<span>Software Architecture</span>
-</nav>
-<h2 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                Understanding <span class="text-highlight">Microservices Architecture</span> and Distributed Systems
-            </h2>
-</div>
-<!-- Definition Section -->
-<section class="mb-12">
-<div class="flex items-center gap-3 mb-4">
-<div class="h-px flex-1 bg-slate-800"></div>
-<span class="text-[#008A3F] text-xs font-bold uppercase tracking-widest">Definition</span>
-<div class="h-px w-8 bg-slate-800"></div>
-</div>
-<div class="glass-card p-8 rounded-2xl leading-relaxed text-lg">
-<p>
-<span class="text-highlight">Microservices</span> is an architectural style that structures an application as a collection of services that are <span class="text-highlight">highly maintainable</span> and testable, loosely coupled, independently deployable, and organized around business capabilities.
-                </p>
-</div>
-</section>
-<!-- Asymmetric Bento-style Content Grid -->
-<div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-12">
-<!-- Explanation Container -->
-<div class="md:col-span-7 glass-card p-8 rounded-2xl">
-<h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-<span class="material-symbols-outlined text-[#008A3F]" data-icon="lightbulb">lightbulb</span>
-                    Deep Dive Explanation
-                </h3>
-<div class="space-y-4 text-slate-400">
-<p>
-                        Unlike the traditional <span class="text-highlight">Monolithic</span> approach, microservices allow large teams to build complex applications by breaking them into smaller, manageable pieces. Each service typically has its own <span class="text-highlight">database</span> to ensure decoupling.
-                    </p>
-<p>
-                        Communication between these services usually happens via <span class="text-highlight">REST APIs</span> or message brokers like RabbitMQ. This ensures that a failure in one service—for example, the payment gateway—does not necessarily crash the entire <span class="text-highlight">ecosystem</span>.
-                    </p>
-</div>
-</div>
-<!-- Key Points Container -->
-<div class="md:col-span-5 bg-[#008A3F]/10 border border-[#008A3F]/20 p-8 rounded-2xl">
-<h3 class="text-xl font-bold text-white mb-6">Key Characteristics</h3>
-<ul class="space-y-4">
-<li class="flex gap-3">
-<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
-<span class="text-slate-200"><span class="font-bold">Scalability:</span> Scale only the components that need more resources.</span>
-</li>
-<li class="flex gap-3">
-<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
-<span class="text-slate-200"><span class="font-bold">Agility:</span> Frequent, reliable delivery of complex applications.</span>
-</li>
-<li class="flex gap-3">
-<span class="material-symbols-outlined text-[#008A3F] mt-1" data-icon="check_circle">check_circle</span>
-<span class="text-slate-200"><span class="font-bold">Resilience:</span> Fault isolation prevents total system failure.</span>
-</li>
-</ul>
-</div>
-</div>
-<!-- Diagram Section -->
-<section class="mb-12">
-<h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-<span class="material-symbols-outlined text-[#008A3F]" data-icon="account_tree">account_tree</span>
-                Architectural Flowchart
-            </h3>
-<div class="relative w-full aspect-video rounded-3xl overflow-hidden border border-slate-800 group">
-<img alt="Architecture Diagram" class="w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 transition-all duration-700" data-alt="abstract technological diagram with glowing neon blue and green nodes connected by data lines in a dark digital space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSS7yVTLw6En4LZD6s1lmPmnHW4t02Z0sG9xFRE5j0GFy0SEZS0jzOMOu-TuDM1hTziIPKwqpSF8s6A7HCdIl2aYFeTRNIg3_5fcg0tFGOpeRH8-icFbqIv8ar0Qs_bh0irD_H1RbYBXZyK7KG9fjMG5wZyH8uqqTsN-711uTDPcMl4z7RbrxwqroSpu1pjh1S8D87acwk6TQXsD4dzwahTruVEl3txp-lQEB6yEi0xBOzi2P6PWOL60zqIpCS0lFXKDKr9qh5okg"/>
-<div class="absolute inset-0 bg-gradient-to-t from-navy via-transparent to-transparent"></div>
-<div class="absolute bottom-8 left-8 right-8">
-<div class="bg-navy/80 backdrop-blur-md p-4 rounded-xl border border-slate-700">
-<p class="text-sm text-slate-300 italic text-center">Fig 1.1: Visual representation of API Gateway routing traffic to decentralized service clusters and dedicated databases.</p>
-</div>
-</div>
-</div>
-</section>
-<!-- Conclusion -->
-<section class="glass-card p-10 rounded-3xl border-l-4 border-l-[#008A3F]">
-<h3 class="text-2xl font-bold text-white mb-4">Summary Conclusion</h3>
-<p class="text-slate-400 leading-relaxed italic">
-                While microservices introduce <span class="text-highlight">operational complexity</span> and require robust <span class="text-highlight">monitoring</span>, they remain the gold standard for modern, large-scale cloud applications where velocity and reliability are paramount. Transitioning requires a shift in both <span class="text-highlight">culture</span> and technology.
-            </p>
-</section>
-<!-- Action Bar -->
-<div class="mt-12 flex flex-wrap gap-4 justify-center">
-<button class="bg-[#008A3F] text-white px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-transform">
-<span class="material-symbols-outlined" data-icon="download">download</span>
-                Save as PDF
-            </button>
-<button class="border border-slate-700 text-slate-300 px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
-<span class="material-symbols-outlined" data-icon="share">share</span>
-                Share Result
-            </button>
-</div>
-</main>
-<!-- BottomNavBar (Mobile Only) -->
-<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] rounded-t-2xl border-t border-slate-100 dark:border-slate-800 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
-<span class="material-symbols-outlined" data-icon="home">home</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
-</div>
-<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
-<span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
-</div>
-<div class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1">
-<span class="material-symbols-outlined" data-icon="history">history</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
-</div>
-<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all">
-<span class="material-symbols-outlined" data-icon="person">person</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
-</div>
-</nav>
-</body></html>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="navigate('dashboard')">
+      <button class="otto-btn-circle" style="border:none;" aria-label="Go back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">Study Workspace</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="otto-btn-circle" onclick="speakNotes()" title="Read aloud" aria-label="Read aloud">
+        <span class="material-symbols-outlined" id="speakIcon">volume_up</span>
+      </button>
+      <button class="otto-btn-circle" onclick="copyAnswer()" title="Copy notes" aria-label="Copy notes">
+        <span class="material-symbols-outlined">content_copy</span>
+      </button>
+      <button class="otto-btn-circle" onclick="navigate('ask')" title="Ask follow-up" aria-label="Ask follow-up">
+        <span class="material-symbols-outlined">add_comment</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="otto-container">
+
+    <!-- Screen 3 Resource Bar -->
+    <div class="resource-tabs">
+      <div class="resource-tab active" id="tabNotes" onclick="switchTab('notes')">
+        <span class="tab-title">Notes</span>
+        <span class="subtext">12 sections</span>
+      </div>
+      <div class="resource-tab" id="tabFlashcards" onclick="navigate('flashcards')">
+        <span class="tab-title">Flashcards</span>
+        <span class="subtext">48 cards</span>
+      </div>
+      <div class="resource-tab" id="tabQuiz" onclick="navigate('quiz')">
+        <span class="tab-title">Quiz</span>
+        <span class="subtext">12 questions</span>
+      </div>
+      <div class="resource-tab" id="tabPodcast" onclick="switchTab('podcast')">
+        <span class="tab-title">Podcast</span>
+        <span class="subtext">8 min AI</span>
+      </div>
+    </div>
+
+    <!-- Otto Screen 5: AI Audio Study & Podcast Card -->
+    <section class="podcast-card" id="podcastSection">
+      <!-- Mascot Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="otto-mascot-avatar" style="background:#FFF; color:var(--otto-blue);">O</div>
+          <div>
+            <span class="deck-badge" style="background:rgba(255,255,255,0.2); font-size:0.65rem;">AI PODCAST</span>
+            <h3 style="font-size:1.3rem; font-weight:900; margin-top:2px;" id="podcastTitle">Intro to Calculus</h3>
+          </div>
+        </div>
+        <button class="otto-btn-circle" style="background:rgba(255,255,255,0.15); border:none; color:#FFF;" aria-label="More options">
+          <span class="material-symbols-outlined">more_horiz</span>
+        </button>
+      </div>
+
+      <p style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:6px;">generated from your lecture notes · 8 min</p>
+
+      <!-- Scrubber -->
+      <div class="audio-scrubber-track" onclick="seekAudio(event)">
+        <div class="audio-scrubber-fill" id="scrubberFill"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:rgba(255,255,255,0.7); font-weight:700;">
+        <span id="currentTimeLabel">3:12</span>
+        <span id="remainingTimeLabel">-4:48</span>
+      </div>
+
+      <!-- Controls (Rewind 15s, Play/Pause, Forward 15s) -->
+      <div class="player-controls">
+        <button class="otto-btn-circle" style="background:transparent; border:none; color:#FFF; font-size:1.5rem;" onclick="skipSeconds(-15)" aria-label="Rewind 15 seconds">
+          <span class="material-symbols-outlined">replay_10</span>
+        </button>
+        <button class="play-pill-btn" onclick="togglePlayPodcast()" aria-label="Play or pause podcast">
+          <span class="material-symbols-outlined" id="playIcon" style="font-size:2.2rem;">play_arrow</span>
+        </button>
+        <button class="otto-btn-circle" style="background:transparent; border:none; color:#FFF; font-size:1.5rem;" onclick="skipSeconds(15)" aria-label="Forward 15 seconds">
+          <span class="material-symbols-outlined">forward_10</span>
+        </button>
+      </div>
+
+      <!-- Chips: 1.5x speed, transcript -->
+      <div style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;">
+        <button class="otto-pill dark" style="background:rgba(255,255,255,0.15); color:#FFF; cursor:pointer;" onclick="toggleSpeed(this)">
+          <span id="speedLabel">1.5x</span>
+        </button>
+        <button class="otto-pill dark" style="background:rgba(255,255,255,0.15); color:#FFF; cursor:pointer;" onclick="toggleTranscript()">
+          <span>transcript</span>
+        </button>
+      </div>
+
+      <!-- Screen 5 CTA: Quiz me on this -->
+      <button class="otto-btn-amber" style="width:100%; padding:14px; font-size:1rem;" onclick="navigate('quiz')">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">bolt</span> Quiz me on this
+      </button>
+    </section>
+
+    <!-- Question Subject & Title -->
+    <div style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <span class="otto-pill blue" id="workspaceSubject">Calculus</span>
+        <span class="otto-label-caps" id="workspaceDate">TODAY</span>
+      </div>
+      <h1 class="otto-h1" id="workspaceQuestion" style="font-size:1.8rem;">What is the derivative of sin(x)?</h1>
+    </div>
+
+    <!-- Notes Content Container -->
+    <article class="otto-card" style="padding:28px; line-height:1.7; font-size:1.05rem;" id="notesContentContainer">
+      <!-- Rendered HTML -->
+    </article>
+
+    <!-- Visual Logic Diagram (Mermaid.js) -->
+    <section class="diagram-panel" id="diagramSection">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <span class="otto-pill dark">
+          <span class="material-symbols-outlined filled" style="font-size:0.9rem; color:var(--otto-amber);">schema</span>
+          <span>Self-Correcting Visual Logic</span>
+        </span>
+        <button class="otto-btn-outline" style="padding:4px 12px; font-size:0.75rem;" onclick="openFullscreenDiagram()">Full screen</button>
+      </div>
+      <div class="mermaid" id="mermaidContainer">
+        flowchart TD
+          A[Input: f(x) = sin(x)] --> B[Difference Quotient: (sin(x+h) - sin(x))/h]
+          B --> C[Angle Sum Expansion: sin(x)cos(h) + cos(x)sin(h) - sin(x)]
+          C --> D[Rearrange: sin(x)(cos(h)-1)/h + cos(x)(sin(h)/h)]
+          D --> E[Evaluate Limits: (cos(h)-1)/h -> 0 and sin(h)/h -> 1]
+          E --> F[Result: f'(x) = cos(x)]
+      </div>
+    </section>
+
+    <!-- Suggested Follow-ups -->
+    <section style="margin-top:28px;">
+      <p class="otto-label-caps" style="margin-bottom:12px;">SUGGESTED EXAM FOLLOW-UPS</p>
+      <div id="suggestedFollowUps" style="display:flex; flex-direction:column; gap:10px;">
+        <!-- Rendered items -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item active" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined filled">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('planner')">
+      <span class="material-symbols-outlined">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <div id="toast" class="otto-toast"></div>
+
+  <script src="../api-utils.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      themeVariables: {
+        primaryColor: '#EFF0FA',
+        primaryTextColor: '#09090A',
+        primaryBorderColor: '#656DE2',
+        lineColor: '#09090A'
+      }
+    });
+
+    let currentPayload = null;
+    let isPlaying = false;
+    let podcastSpeed = 1.0;
+    let speechSynth = window.speechSynthesis;
+
+    function initWorkspace() {
+      const stored = localStorage.getItem('em_last_answer');
+      if (stored) {
+        try {
+          currentPayload = JSON.parse(stored);
+        } catch {}
+      }
+
+      if (!currentPayload) {
+        currentPayload = {
+          question: "What is the derivative of sin(x)?",
+          subject: "Calculus",
+          answer: "### Definition of Derivative for Sine Function\n\nThe derivative of the sine function is the cosine function:\n\n$$\\frac{d}{dx} [\\sin(x)] = \\cos(x)$$\n\n### Geometric and Analytical Proof\n\n1. **First Principles Limit:** We evaluate $\\lim_{h \\to 0} \\frac{\\sin(x+h) - \\sin(x)}{h}$.\n2. **Trigonometric Angle Addition:** $\\sin(x+h) = \\sin(x)\\cos(h) + \\cos(x)\\sin(h)$.\n3. **Grouping Terms:** $\\sin(x)\\left(\\frac{\\cos(h)-1}{h}\\right) + \\cos(x)\\left(\\frac{\\sin(h)}{h}\\right)$.\n4. **Known Fundamental Limits:** Since $\\lim_{h \\to 0} \\frac{\\cos(h)-1}{h} = 0$ and $\\lim_{h \\to 0} \\frac{\\sin(h)}{h} = 1$, the first term vanishes and we arrive at $\\cos(x)$.",
+          mermaid_code: "flowchart TD\n  A[Input: f(x) = sin(x)] --> B[Difference Quotient: (sin(x+h) - sin(x))/h]\n  B --> C[Angle Sum: sin(x)cos(h) + cos(x)sin(h) - sin(x)]\n  C --> D[Rearrange: sin(x)(cos(h)-1)/h + cos(x)(sin(h)/h)]\n  D --> E[Evaluate Limits: 0 and 1]\n  E --> F[Result: f'(x) = cos(x)]",
+          suggested_questions: [
+            "What is the integral of cos(x)?",
+            "How do we prove the derivative of cos(x)?",
+            "Apply the chain rule to differentiate sin(3x^2)."
+          ]
+        };
+      }
+
+      document.getElementById('workspaceQuestion').textContent = currentPayload.question;
+      document.getElementById('podcastTitle').textContent = currentPayload.question.length > 30 ? currentPayload.question.slice(0, 30) + '...' : currentPayload.question;
+      document.getElementById('workspaceSubject').textContent = currentPayload.subject || 'Study Notes';
+
+      // Simple markdown-to-HTML formatting
+      const formatted = (currentPayload.answer || '')
+        .replace(/### (.*?)\n/g, '<h3 style="font-size:1.25rem; font-weight:800; color:var(--otto-onyx); margin:20px 0 10px 0;">$1</h3>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<p style="margin-bottom:14px;"></p>');
+      document.getElementById('notesContentContainer').innerHTML = formatted;
+
+      // Follow-ups
+      const fu = document.getElementById('suggestedFollowUps');
+      const items = currentPayload.suggested_questions || [];
+      fu.innerHTML = items.map(q => `
+        <div class="otto-card interactive" style="padding:14px 18px; cursor:pointer;" onclick="askFollowUp('${escapeHtml(q)}')">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:700; font-size:0.95rem; color:var(--otto-onyx);">${escapeHtml(q)}</span>
+            <span class="material-symbols-outlined" style="font-size:1.1rem; color:var(--otto-iris);">arrow_forward</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function switchTab(tab) {
+      if (tab === 'podcast') {
+        document.getElementById('podcastSection').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        document.getElementById('notesContentContainer').scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function togglePlayPodcast() {
+      isPlaying = !isPlaying;
+      const icon = document.getElementById('playIcon');
+      if (isPlaying) {
+        icon.textContent = 'pause';
+        showToast('Playing AI Study Podcast', 'default');
+        speakNotes();
+      } else {
+        icon.textContent = 'play_arrow';
+        if (speechSynth) speechSynth.cancel();
+      }
+    }
+
+    function speakNotes() {
+      if (!speechSynth) {
+        showToast('Speech audio not supported on this browser', 'default');
+        return;
+      }
+      speechSynth.cancel();
+      const text = currentPayload.question + '. ' + (currentPayload.answer || '').replace(/[#*$\n]/g, ' ');
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = podcastSpeed;
+      utterance.onend = () => {
+        isPlaying = false;
+        document.getElementById('playIcon').textContent = 'play_arrow';
+      };
+      speechSynth.speak(utterance);
+      showToast('Audio narration playing...', 'default');
+    }
+
+    function toggleSpeed(btn) {
+      podcastSpeed = podcastSpeed === 1.0 ? 1.5 : podcastSpeed === 1.5 ? 2.0 : 1.0;
+      document.getElementById('speedLabel').textContent = podcastSpeed + 'x';
+      showToast(`Speed set to ${podcastSpeed}x`, 'default');
+      if (isPlaying) speakNotes();
+    }
+
+    function toggleTranscript() {
+      document.getElementById('notesContentContainer').scrollIntoView({ behavior: 'smooth' });
+      showToast('Viewing full transcript below', 'default');
+    }
+
+    function seekAudio(e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      document.getElementById('scrubberFill').style.width = (pct * 100) + '%';
+    }
+
+    function skipSeconds(s) {
+      showToast(s > 0 ? '+15s' : '-15s', 'default');
+    }
+
+    function copyAnswer() {
+      navigator.clipboard.writeText(currentPayload.answer || '');
+      showToast('Notes copied to clipboard!', 'success');
+    }
+
+    function askFollowUp(q) {
+      sessionStorage.setItem('followup_q', q);
+      navigate('ask');
+    }
+
+    function openFullscreenDiagram() {
+      const el = document.getElementById('diagramSection');
+      if (el.requestFullscreen) el.requestFullscreen();
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
+    }
+
+    initWorkspace();
+  </script>
+</body>
+</html>

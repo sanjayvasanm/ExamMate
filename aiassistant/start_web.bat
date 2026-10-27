@@ -1,42 +1,47 @@
 @echo off
-title Exam Mate - Web Frontend
+title Exam Mate - Web Frontend (Otto Theme)
 color 0B
 
 echo ============================================
-echo   EXAM MATE - Web Frontend (Edge)
+echo   EXAM MATE - Web Frontend (Otto Theme)
 echo ============================================
 echo.
 
 cd /d "%~dp0"
 
-:: Check if backend is likely running
+:: Check if backend is running on 5000
 netstat -ano | findstr :5000 > nul
 if %errorlevel% neq 0 (
-    echo [WARNING] Backend (Port 5000) does not seem to be running.
-    echo           Please run start_backend.bat first!
+    echo [INFO] Local Backend (Port 5000) not detected.
+    echo        Frontend will connect to Cloud API or Local Demo Mode.
+    echo        (To run local backend, run backend\start_backend.bat)
     echo.
 )
 
-echo [*] Starting local web server on http://localhost:8080
-echo [*] Project Root: %cd%\aiassistant\frontend\assets
+set "WEB_DIR=frontend\assets"
+if not exist "%WEB_DIR%" set "WEB_DIR=."
+
+echo [*] Serving directory: %cd%\%WEB_DIR%
+echo [*] Starting server on http://localhost:8080
 echo.
 
-:: Open Edge browser
-echo [*] Opening Microsoft Edge...
-start msedge "http://localhost:8080/login_exam_mate/code.html"
+:: Open browser
+start "" "http://localhost:8080/index.html"
 
-:: Run Python's HTTP server
-:: Uses the Python from the backend venv if available, or system python
-if exist "aiassistant\backend\venv\Scripts\python.exe" (
-    aiassistant\backend\venv\Scripts\python.exe -m http.server 8080 --directory aiassistant\frontend\assets
+:: Run Python HTTP server
+if exist "backend\venv\Scripts\python.exe" (
+    backend\venv\Scripts\python.exe -m http.server 8080 --directory "%WEB_DIR%"
+) else if exist "..\.venv\Scripts\python.exe" (
+    ..\.venv\Scripts\python.exe -m http.server 8080 --directory "%WEB_DIR%"
+) else if exist ".venv\Scripts\python.exe" (
+    .venv\Scripts\python.exe -m http.server 8080 --directory "%WEB_DIR%"
 ) else (
-    python -m http.server 8080 --directory aiassistant\frontend\assets
+    python -m http.server 8080 --directory "%WEB_DIR%"
 )
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Failed to start web server. 
-    echo         Make sure Python is installed and Port 8080 is free.
+    echo [ERROR] Failed to start web server. Make sure Python is installed.
 )
 
 pause

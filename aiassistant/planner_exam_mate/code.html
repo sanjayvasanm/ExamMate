@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Study Planner & Exams - Otto</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
+  <style>
+    .exam-card {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-lg);
+      padding: 22px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      box-shadow: var(--otto-shadow-sm);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .exam-card:hover {
+      box-shadow: var(--otto-shadow-md);
+      transform: translateY(-2px);
+    }
+    .exam-card.completed {
+      opacity: 0.75;
+      background: #F9FAFB;
+    }
+    .exam-card.completed h3 {
+      text-decoration: line-through;
+      color: #9CA3AF;
+    }
+
+    .check-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--otto-tint);
+      background: var(--otto-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.2s ease;
+    }
+    .check-btn.checked {
+      background: var(--otto-onyx);
+      border-color: var(--otto-onyx);
+      color: #FFF;
+    }
+
+    /* Modal for Add / Edit */
+    .otto-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 9, 10, 0.4);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .otto-modal.active {
+      display: flex;
+    }
+    .otto-modal-content {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      width: 100%;
+      max-width: 480px;
+      padding: 28px;
+      box-shadow: var(--otto-shadow-lg);
+      border: var(--otto-border);
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.94); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--otto-muted);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: var(--otto-radius-md);
+      border: var(--otto-border);
+      font-family: var(--otto-font);
+      font-size: 0.95rem;
+      outline: none;
+      background: #F9FAFB;
+    }
+    .form-input:focus {
+      border-color: var(--otto-iris);
+      background: #FFF;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="navigate('dashboard')">
+      <button class="otto-btn-circle" style="border:none;" aria-label="Go back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">Upcoming Exams</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="otto-btn-amber" style="padding:10px 20px; font-size:0.85rem;" onclick="openAddModal()">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;">add</span> Add Exam
+      </button>
+    </div>
+  </header>
+
+  <main class="otto-container">
+
+    <!-- Header Banner -->
+    <div style="margin-bottom: 24px;">
+      <p class="otto-label-caps" style="color:#6B7280;">SEMESTER TIMELINE</p>
+      <h1 class="otto-h1" style="font-size:1.9rem; margin-top:4px;">Stay ahead of deadlines.</h1>
+      <p style="font-size:0.9rem; color:#6B7280; margin-top:4px;">Track upcoming tests, revision targets, and target subjects.</p>
+    </div>
+
+    <!-- Exam Counter Pill -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <span class="otto-label-caps" id="planCountLabel">UPCOMING EXAMS</span>
+      <span class="otto-pill blue" id="examTotalBadge">0 planned</span>
+    </div>
+
+    <!-- Exams List Container -->
+    <div id="plansList">
+      <div style="text-align:center; padding:40px; color:#9CA3AF;">Loading your exam schedule...</div>
+    </div>
+
+  </main>
+
+  <!-- Add / Edit Exam Modal -->
+  <div class="otto-modal" id="planModal">
+    <div class="otto-modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="font-weight:900; font-size:1.3rem; color:var(--otto-onyx);" id="modalTitle">Add an exam</h3>
+        <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="closeModal()">
+          <span class="material-symbols-outlined" style="font-size:1.1rem;">close</span>
+        </button>
+      </div>
+
+      <form id="planForm" onsubmit="handleSavePlan(event)">
+        <input type="hidden" id="editPlanId"/>
+
+        <div class="form-group">
+          <label class="form-label" for="planTitle">Plan Title</label>
+          <input type="text" id="planTitle" class="form-input" placeholder="e.g. Calculus Midterm Revision" required maxlength="120"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planSubject">Subject</label>
+          <input type="text" id="planSubject" class="form-input" placeholder="e.g. Mathematics" required maxlength="80"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planDate">Exam Date</label>
+          <input type="date" id="planDate" class="form-input" required/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="planNotes">Study Notes (Optional)</label>
+          <textarea id="planNotes" class="form-input" rows="3" placeholder="Topics to prioritize, chapters, or formulas..." maxlength="500"></textarea>
+        </div>
+
+        <button type="submit" class="otto-btn-amber" style="width:100%; padding:14px; margin-top:8px;">
+          Save to planner
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item active" onclick="navigate('planner')">
+      <span class="material-symbols-outlined filled">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <div id="toast" class="otto-toast"></div>
+
+  <script src="../api-utils.js"></script>
+  <script>
+    const token = getAuthToken();
+
+    let plans = [];
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return 0;
+      const target = new Date(dateStr + 'T00:00:00');
+      const now = new Date(new Date().toDateString());
+      const diff = target - now;
+      return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+
+    async function loadPlans() {
+      try {
+        const res = await apiFetch(API + '/plans');
+        if (res && res.ok) {
+          const data = await res.json();
+          plans = data.plans || [];
+        } else {
+          loadFallbackPlans();
+          return;
+        }
+      } catch (e) {
+        console.warn('Backend plan error, loading fallback:', e);
+        loadFallbackPlans();
+        return;
+      }
+      renderPlans();
+    }
+
+    function loadFallbackPlans() {
+      const stored = localStorage.getItem('em_local_plans');
+      if (stored) {
+        plans = JSON.parse(stored);
+      } else {
+        plans = [
+          {
+            id: 'plan_1',
+            title: 'Calculus II Final Exam',
+            subject: 'Mathematics',
+            exam_date: new Date(Date.now() + 6 * 86400000).toISOString().split('T')[0],
+            notes: 'Integration by parts, improper integrals, series convergence',
+            completed: false
+          },
+          {
+            id: 'plan_2',
+            title: 'Computer Architecture Midterm',
+            subject: 'Computer Science',
+            exam_date: new Date(Date.now() + 12 * 86400000).toISOString().split('T')[0],
+            notes: 'Pipelining, cache mapping, hazard resolution',
+            completed: false
+          }
+        ];
+      }
+      renderPlans();
+    }
+
+    function renderPlans() {
+      document.getElementById('examTotalBadge').textContent = plans.length + ' planned';
+      const container = document.getElementById('plansList');
+
+      if (plans.length === 0) {
+        container.innerHTML = `
+          <div class="otto-card" style="text-align:center; padding:48px 20px;">
+            <div style="width:52px; height:52px; border-radius:18px; background:#EFF0FA; color:var(--otto-iris); display:flex; align-items:center; justify-content:center; margin:0 auto 14px auto;">
+              <span class="material-symbols-outlined filled" style="font-size:1.8rem;">event_available</span>
+            </div>
+            <h3 style="font-weight:900; font-size:1.2rem; color:var(--otto-onyx); margin-bottom:4px;">No upcoming exams</h3>
+            <p style="font-size:0.85rem; color:#6B7280; margin-bottom:18px;">Add your next course test to stay organized and calm.</p>
+            <button class="otto-btn-amber" onclick="openAddModal()">Add your first exam</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = plans.map(p => {
+        const days = daysUntil(p.exam_date);
+        const dayLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`;
+        const badgeColor = days <= 3 ? 'peach' : 'blue';
+
+        return `
+          <article class="exam-card ${p.completed ? 'completed' : ''}">
+            <button class="check-btn ${p.completed ? 'checked' : ''}" onclick="togglePlan('${p.id}', ${!p.completed})" title="${p.completed ? 'Mark incomplete' : 'Mark completed'}" aria-label="${p.completed ? 'Mark incomplete' : 'Mark completed'}">
+              ${p.completed ? '<span class="material-symbols-outlined" style="font-size:1.1rem;">check</span>' : ''}
+            </button>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;">
+                <h3 style="font-size:1.1rem; font-weight:900; color:var(--otto-onyx);">${escapeHtml(p.title)}</h3>
+                <span class="otto-pill ${p.completed ? 'mint' : badgeColor}" style="font-size:0.75rem; flex-shrink:0;">${p.completed ? 'Done' : dayLabel}</span>
+              </div>
+              <p style="font-size:0.85rem; color:#6B7280; font-weight:700;">${escapeHtml(p.subject)} · ${p.exam_date}</p>
+              ${p.notes ? `<p style="font-size:0.82rem; color:#4B5563; margin-top:8px; line-height:1.4; background:#F8F9FE; padding:10px 14px; border-radius:12px;">${escapeHtml(p.notes)}</p>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="openEditModal('${p.id}')" title="Edit" aria-label="Edit exam">
+                <span class="material-symbols-outlined" style="font-size:1rem; color:#6B7280;">edit</span>
+              </button>
+              <button class="otto-btn-circle" style="width:34px; height:34px;" onclick="deletePlan('${p.id}')" title="Delete" aria-label="Delete exam">
+                <span class="material-symbols-outlined" style="font-size:1rem; color:#EF4444;">delete</span>
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function togglePlan(id, newStatus) {
+      // Instant optimistic UI update so there is zero lag
+      const target = plans.find(p => p.id === id);
+      if (target) {
+        target.completed = newStatus;
+        renderPlans();
+      }
+
+      try {
+        const res = await apiFetch(API + '/plans/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: newStatus })
+        });
+        if (res && res.ok) {
+          showToast(newStatus ? 'Exam marked as completed!' : 'Exam marked as active', 'success');
+        } else {
+          // If Supabase table isn't updated, preserve locally
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      } catch (e) {
+        localStorage.setItem('em_local_plans', JSON.stringify(plans));
+      }
+    }
+
+    async function deletePlan(id) {
+      if (!confirm('Remove this exam from your planner?')) return;
+      plans = plans.filter(p => p.id !== id);
+      localStorage.setItem('em_local_plans', JSON.stringify(plans));
+      renderPlans();
+
+      try {
+        await apiFetch(API + '/plans/' + id, { method: 'DELETE' });
+        showToast('Exam removed from planner', 'default');
+      } catch (e) {
+        showToast('Exam removed locally', 'default');
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add an exam';
+      document.getElementById('editPlanId').value = '';
+      document.getElementById('planTitle').value = '';
+      document.getElementById('planSubject').value = '';
+      document.getElementById('planDate').value = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+      document.getElementById('planNotes').value = '';
+      document.getElementById('planModal').classList.add('active');
+    }
+
+    function openEditModal(id) {
+      const p = plans.find(item => item.id === id);
+      if (!p) return;
+      document.getElementById('modalTitle').textContent = 'Edit exam plan';
+      document.getElementById('editPlanId').value = p.id;
+      document.getElementById('planTitle').value = p.title;
+      document.getElementById('planSubject').value = p.subject;
+      document.getElementById('planDate').value = p.exam_date;
+      document.getElementById('planNotes').value = p.notes || '';
+      document.getElementById('planModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('planModal').classList.remove('active');
+    }
+
+    async function handleSavePlan(e) {
+      e.preventDefault();
+      const id = document.getElementById('editPlanId').value;
+      const title = document.getElementById('planTitle').value.trim();
+      const subject = document.getElementById('planSubject').value.trim();
+      const exam_date = document.getElementById('planDate').value;
+      const notes = document.getElementById('planNotes').value.trim();
+
+      if (!title || !subject || !exam_date) return;
+
+      if (id) {
+        // Edit existing
+        const target = plans.find(p => p.id === id);
+        if (target) {
+          target.title = title;
+          target.subject = subject;
+          target.exam_date = exam_date;
+          target.notes = notes;
+        }
+        closeModal();
+        renderPlans();
+        try {
+          await apiFetch(API + '/plans/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, subject, exam_date, notes })
+          });
+          showToast('Exam updated!', 'success');
+        } catch {
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      } else {
+        // Create new
+        const newObj = {
+          id: 'plan_' + Date.now(),
+          title,
+          subject,
+          exam_date,
+          notes,
+          completed: false
+        };
+        plans.unshift(newObj);
+        closeModal();
+        renderPlans();
+
+        try {
+          const res = await apiFetch(API + '/plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, subject, exam_date, notes })
+          });
+          if (res && res.ok) {
+            const data = await res.json();
+            if (data.plan && data.plan.id) newObj.id = data.plan.id;
+          }
+          showToast('Exam added to planner!', 'success');
+        } catch {
+          localStorage.setItem('em_local_plans', JSON.stringify(plans));
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
+    }
+
+    loadPlans();
+  </script>
+</body>
+</html>

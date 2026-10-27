@@ -6,6 +6,8 @@ __pycache__/
 .venv/
 .env
 .env.*
+!.env.example
+!backend/.env.example
 
 # Local tooling
 .agent/

@@ -38,6 +38,7 @@ class ExamMateApp extends StatelessWidget {
       ),
       home: const RootGate(),
     );
+
   }
 }
 

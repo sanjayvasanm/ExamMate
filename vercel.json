@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/$", "dest": "/aiassistant/index.html" },
+    { "src": "/(.*)", "dest": "/aiassistant/$1" }
+  ]
+}

@@ -18,4 +18,4 @@ services:
       - key: SUPABASE_KEY
         sync: false # Set your Supabase Service/Anon Key here
       - key: CORS_ORIGINS
-        value: "*" # Update this to your frontend URL in production for better security
+        sync: false # Set to the deployed Vercel origin, e.g. https://exam-mate.vercel.app

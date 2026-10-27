@@ -16,6 +16,8 @@ venv/
 **/ios/Flutter/flutter_export_environment.sh
 **/android/**.keystore
 **/android/**.jks
+*.apk
+**/*.apk
 
 # IDEs
 .vscode/

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: exam-mate-backend
+    runtime: docker
+    dockerContext: aiassistant/backend
+    dockerfilePath: aiassistant/backend/Dockerfile
+    envVars:
+      - key: JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"

@@ -1,223 +1,337 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Learning Analytics & History - Otto</title>
+  <link rel="stylesheet" href="../otto-theme.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    .analytics-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (min-width: 640px) {
+      .analytics-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .stat-metric-card {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-md);
+      padding: 18px;
+      box-shadow: var(--otto-shadow-sm);
+    }
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Exam Mate - History</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        navy: {
-                            900: '#0D0C22',
-                            800: '#161531',
-                            700: '#1F1E40'
-                        },
-                        emerald: {
-                            500: '#008A3F',
-                            600: '#007033',
-                            400: '#10B981'
-                        }
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    fontFamily: {
-                        "headline": ["Public Sans"],
-                        "body": ["Public Sans"],
-                        "label": ["Public Sans"]
-                    }
-                },
-            },
-        }
-    </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #1F1E40;
-            border-radius: 10px;
-        }
-    </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
+    .history-item-card {
+      background: var(--otto-white);
+      border: var(--otto-border);
+      border-radius: var(--otto-radius-md);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .history-item-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--otto-shadow-sm);
+      border-color: var(--otto-iris);
+    }
+
+    /* Modal */
+    .otto-detail-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 9, 10, 0.45);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .otto-detail-modal.active {
+      display: flex;
+    }
+    .modal-paper {
+      background: var(--otto-white);
+      border-radius: var(--otto-radius-lg);
+      width: 100%;
+      max-width: 640px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 30px;
+      border: var(--otto-border);
+      box-shadow: var(--otto-shadow-lg);
     }
   </style>
-  </head>
-<body class="bg-slate-50 font-body text-slate-900 min-h-screen flex flex-col">
-<!-- TopAppBar -->
-<header class="bg-[#0D0C22] dark:bg-slate-950 flex justify-between items-center px-6 py-4 w-full docked full-width top-0 border-b border-slate-800 shadow-lg shadow-black/20 z-50">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[#008A3F] dark:text-green-400 text-2xl" data-icon="auto_awesome">auto_awesome</span>
-<h1 class="text-xl font-bold text-white dark:text-slate-100 font-sans tracking-tight">Exam Mate</h1>
-</div>
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-700">
-<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional man with a confident expression in a bright studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOWBnjlO4e8Fe8-4Q1nPSufSkABxP8LzoGoKnxS_bpzz1aXHfjcCbkz376BE49icInQ1FgyzK-jz_B6Y2Np5Ng6xRPAGCCNaF4HRmtULLaQ6ZnxuCePEf22WkGnFpU0dGzxNCtTA0AsmygTYTpPYoskLMFAQwt8h8PValdw70YrhyIAGG9nVCiHfrW-qd7AQVmDs8_3isq-Wq5T3cpJdLTVN41RnNWjj_TH2nEeC4FJb-HFVYKuUz20O_ApNngfGZgBjRF120mz0I"/>
-</div>
-</div>
-</header>
-<!-- Main Content Area -->
-<main class="flex-1 overflow-y-auto custom-scrollbar pb-24 bg-[#0D0C22] relative overflow-hidden">
-<!-- Futuristic Background Elements -->
-<div class="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
-<div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px]"></div>
-<div class="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-navy-700 rounded-full blur-[120px]"></div>
-</div>
-<div class="relative z-10 max-w-2xl mx-auto px-6 pt-8">
-<!-- Search & Filter Header -->
-<div class="mb-8">
-<h2 class="text-2xl font-extrabold text-white mb-2">Question History</h2>
-<p class="text-slate-400 text-sm mb-6">Review your past queries and AI-generated solutions.</p>
-<div class="flex items-center gap-3 bg-navy-800/50 p-1 rounded-xl border border-white/5">
-<div class="flex-1 flex items-center gap-2 px-3">
-<span class="material-symbols-outlined text-slate-500 text-xl" data-icon="search">search</span>
-<input class="bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 w-full py-2 text-sm" placeholder="Search history..." type="text"/>
-</div>
-<button class="bg-navy-700 hover:bg-navy-600 text-white p-2 rounded-lg transition-colors">
-<span class="material-symbols-outlined" data-icon="tune">tune</span>
-</button>
-</div>
-</div>
-<!-- List Section: Today -->
-<div class="space-y-4 mb-10">
-<div class="flex items-center gap-3 mb-4">
-<span class="h-[1px] flex-1 bg-slate-800"></span>
-<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Today</span>
-<span class="h-[1px] flex-1 bg-slate-800"></span>
-</div>
-<!-- History Item 1 -->
-<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
-<div class="flex justify-between items-start mb-3">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="psychology">psychology</span>
-</div>
-<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Advanced Physics</span>
-</div>
-<span class="text-xs text-slate-500">2h ago</span>
-</div>
-<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">Quantum Mechanics Fundamentals</h3>
-<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Describe the observer effect in quantum mechanics and its implications on the wave-particle duality experiment...</p>
-<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-<div class="flex gap-2">
-<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Quiz Ready</span>
-</div>
-<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-<!-- History Item 2 -->
-<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
-<div class="flex justify-between items-start mb-3">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="function">function</span>
-</div>
-<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Calculus III</span>
-</div>
-<span class="text-xs text-slate-500">5h ago</span>
-</div>
-<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">Multiple Integrals in Polar Coordinates</h3>
-<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Calculate the area of the region enclosed by the cardioid r = 1 + cos θ using double integrals...</p>
-<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-<div class="flex gap-2">
-<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Step-by-step</span>
-</div>
-<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-</div>
-<!-- List Section: Yesterday -->
-<div class="space-y-4">
-<div class="flex items-center gap-3 mb-4">
-<span class="h-[1px] flex-1 bg-slate-800"></span>
-<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Yesterday</span>
-<span class="h-[1px] flex-1 bg-slate-800"></span>
-</div>
-<!-- History Item 3 -->
-<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
-<div class="flex justify-between items-start mb-3">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="biotech">biotech</span>
-</div>
-<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Organic Chemistry</span>
-</div>
-<span class="text-xs text-slate-500">Yesterday</span>
-</div>
-<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">SN2 Reaction Mechanism</h3>
-<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Explain the stereochemistry of SN2 reactions and why the rate is dependent on the concentration of both reactants...</p>
-<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-<div class="flex gap-2">
-<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Video Summary</span>
-</div>
-<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-<!-- History Item 4 -->
-<div class="glass-card rounded-2xl p-5 hover:bg-white/5 transition-all cursor-pointer group active:scale-[0.98]">
-<div class="flex justify-between items-start mb-3">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-<span class="material-symbols-outlined text-emerald-500 text-lg" data-icon="history_edu">history_edu</span>
-</div>
-<span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Modern History</span>
-</div>
-<span class="text-xs text-slate-500">Yesterday</span>
-</div>
-<h3 class="text-white font-semibold text-lg mb-2 group-hover:text-emerald-400 transition-colors">The Industrial Revolution Impacts</h3>
-<p class="text-slate-400 text-sm line-clamp-2 leading-relaxed">Analyze the socio-economic impacts of the steam engine introduction in 18th century Britain...</p>
-<div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-<div class="flex gap-2">
-<span class="px-2 py-1 rounded-md bg-navy-800 text-[10px] font-medium text-slate-400 border border-white/5">Doc Scanned</span>
-</div>
-<span class="material-symbols-outlined text-slate-500 group-hover:text-emerald-400 transition-all" data-icon="arrow_forward">arrow_forward</span>
-</div>
-</div>
-</div>
-<!-- Empty State Spacer -->
-<div class="h-10"></div>
-</div>
-</main>
-<!-- BottomNavBar -->
-<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white dark:bg-[#0D0C22] rounded-t-2xl shadow-[0_-4px_10px_rgba(0,0,0,0.05)] border-t border-slate-100 dark:border-slate-800">
-<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
-<span class="material-symbols-outlined" data-icon="home">home</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Home</span>
-</a>
-<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
-<span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Upload</span>
-</a>
-<a class="flex flex-col items-center justify-center text-[#008A3F] dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl px-3 py-1 transition-all" href="#">
-<span class="material-symbols-outlined" data-icon="history" data-weight="fill" style="font-variation-settings: 'FILL' 1;">history</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">History</span>
-</a>
-<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#008A3F] dark:hover:text-green-400 transition-all" href="#">
-<span class="material-symbols-outlined" data-icon="person">person</span>
-<span class="text-[11px] font-medium uppercase tracking-wider">Profile</span>
-</a>
-</nav>
-</body></html>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="otto-topbar">
+    <div class="otto-brand-group" onclick="navigate('dashboard')">
+      <button class="otto-btn-circle" style="border:none;" aria-label="Go back">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <span style="font-weight:800; font-size:1.15rem; letter-spacing:-0.02em;">Analytics & History</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="otto-btn-circle" onclick="clearSearch()" title="Refresh" aria-label="Refresh">
+        <span class="material-symbols-outlined">refresh</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="otto-container">
+
+    <!-- Screen 1 & Analytics Metric Row -->
+    <section class="analytics-stats-grid">
+      <div class="stat-metric-card">
+        <p class="otto-label-caps" style="font-size:0.65rem;">TOTAL CARDS & Qs</p>
+        <div style="font-size:1.8rem; font-weight:900; color:var(--otto-onyx); margin-top:4px;" id="statTotalQ">307</div>
+      </div>
+      <div class="stat-metric-card">
+        <p class="otto-label-caps" style="font-size:0.65rem;">ACTIVE STREAK</p>
+        <div style="font-size:1.8rem; font-weight:900; color:#EC9205; margin-top:4px;" id="statStreak">9 days</div>
+      </div>
+      <div class="stat-metric-card">
+        <p class="otto-label-caps" style="font-size:0.65rem;">DOCUMENTS</p>
+        <div style="font-size:1.8rem; font-weight:900; color:var(--otto-blue); margin-top:4px;" id="statTotalDocs">12</div>
+      </div>
+      <div class="stat-metric-card">
+        <p class="otto-label-caps" style="font-size:0.65rem;">QUIZ ACCURACY</p>
+        <div style="font-size:1.8rem; font-weight:900; color:#059669; margin-top:4px;">90%</div>
+      </div>
+    </section>
+
+    <!-- Search / Filter -->
+    <div style="margin-bottom:20px;">
+      <input type="text" id="searchInput" class="search-input-field" placeholder="Search questions, calculus, physics, diagrams..." oninput="debounceSearch()"/>
+    </div>
+
+    <!-- History List -->
+    <section>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <p class="otto-label-caps">STUDY ARCHIVE</p>
+        <span class="otto-pill dark" id="archiveCountBadge" style="font-size:0.75rem;">Loading...</span>
+      </div>
+      <div id="historyList">
+        <div style="text-align:center; padding:40px; color:#9CA3AF;">Loading your learning history...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Detail Modal -->
+  <div class="otto-detail-modal" id="detailModal">
+    <div class="modal-paper">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <span class="otto-pill blue" id="modalSubject">Subject</span>
+        <button class="otto-btn-circle" style="width:32px; height:32px;" onclick="closeDetailModal()">
+          <span class="material-symbols-outlined" style="font-size:1rem;">close</span>
+        </button>
+      </div>
+
+      <h3 style="font-size:1.35rem; font-weight:900; color:var(--otto-onyx); margin-bottom:16px;" id="modalQuestion">Question Title</h3>
+      
+      <div style="background:#F8F9FE; padding:18px; border-radius:18px; line-height:1.6; font-size:0.95rem; color:#374151; margin-bottom:20px;" id="modalAnswer">
+        Answer content...
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="otto-btn-amber" style="flex:1;" onclick="openInWorkspace()">
+          Study in Workspace
+        </button>
+        <button class="otto-btn-circle" style="width:46px; height:46px;" onclick="deleteCurrentQuestion()" title="Delete" aria-label="Delete question">
+          <span class="material-symbols-outlined" style="color:#EF4444;">delete</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="otto-bottom-nav">
+    <div class="otto-nav-item" onclick="navigate('dashboard')">
+      <span class="material-symbols-outlined">grid_view</span>
+      <span>Library</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('upload')">
+      <span class="material-symbols-outlined">add_circle</span>
+      <span>Create</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('flashcards')">
+      <span class="material-symbols-outlined">bolt</span>
+      <span>Practice</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('planner')">
+      <span class="material-symbols-outlined">event_note</span>
+      <span>Planner</span>
+    </div>
+    <div class="otto-nav-item" onclick="navigate('profile')">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span>You</span>
+    </div>
+  </nav>
+
+  <div id="toast" class="otto-toast"></div>
+
+  <script src="../api-utils.js"></script>
+  <script>
+    const token = getAuthToken();
+
+    let historyItems = [];
+    let activeItem = null;
+    let debounceTimer = null;
+
+    function debounceSearch() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(loadHistory, 350);
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      loadHistory();
+    }
+
+    async function loadHistory() {
+      const q = document.getElementById('searchInput').value.trim();
+      const url = API + '/history' + (q ? '?q=' + encodeURIComponent(q) : '');
+
+      try {
+        const res = await apiFetch(url);
+        if (res && res.ok) {
+          const data = await res.json();
+          historyItems = data.history || [];
+          document.getElementById('statTotalQ').textContent = historyItems.length || 307;
+          document.getElementById('archiveCountBadge').textContent = historyItems.length + ' questions';
+          renderHistoryList();
+          return;
+        }
+      } catch (e) {
+        console.warn('History fallback:', e);
+      }
+      renderFallbackHistory();
+    }
+
+    function renderHistoryList() {
+      const container = document.getElementById('historyList');
+      if (historyItems.length === 0) {
+        renderFallbackHistory();
+        return;
+      }
+
+      container.innerHTML = historyItems.map(item => `
+        <article class="history-item-card" onclick="openItemDetail('${item.id}')">
+          <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#EFF0FA; color:var(--otto-iris); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <span class="material-symbols-outlined">quiz</span>
+            </div>
+            <div style="min-width:0;">
+              <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(item.question)}</h4>
+              <p style="font-size:0.75rem; color:#6B7280; font-weight:700;">${item.subject || 'General'} · ${item.time_label || 'Recent'}</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined" style="color:var(--otto-iris); font-size:1.1rem;">chevron_right</span>
+        </article>
+      `).join('');
+    }
+
+    function renderFallbackHistory() {
+      document.getElementById('archiveCountBadge').textContent = 'Sample Archive';
+      const container = document.getElementById('historyList');
+      container.innerHTML = `
+        <article class="history-item-card" onclick="openFallback('What is the derivative of sin(x)?', 'Calculus', 'The derivative is cos(x). Proven via trigonometric limits.')">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#FCE8E2; color:#EA580C; display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-outlined">functions</span>
+            </div>
+            <div>
+              <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx);">What is the derivative of sin(x)?</h4>
+              <p style="font-size:0.75rem; color:#6B7280;">Calculus · Today</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined" style="color:var(--otto-iris);">chevron_right</span>
+        </article>
+
+        <article class="history-item-card" onclick="openFallback('Explain ACID properties in database management systems.', 'Database Systems', 'Atomicity, Consistency, Isolation, Durability.')">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#E2E6FF; color:var(--otto-blue); display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-outlined">database</span>
+            </div>
+            <div>
+              <h4 style="font-weight:800; font-size:0.95rem; color:var(--otto-onyx);">Explain ACID properties in database management</h4>
+              <p style="font-size:0.75rem; color:#6B7280;">Database Systems · Yesterday</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined" style="color:var(--otto-iris);">chevron_right</span>
+        </article>
+      `;
+    }
+
+    async function openItemDetail(id) {
+      try {
+        const res = await apiFetch(API + '/history/' + id);
+        if (res && res.ok) {
+          const data = await res.json();
+          activeItem = data;
+          document.getElementById('modalSubject').textContent = data.subject || 'Notes';
+          document.getElementById('modalQuestion').textContent = data.question;
+          document.getElementById('modalAnswer').textContent = data.answer;
+          document.getElementById('detailModal').classList.add('active');
+        }
+      } catch (e) {
+        showToast('Could not load question details', 'error');
+      }
+    }
+
+    function openFallback(q, sub, ans) {
+      activeItem = { question: q, subject: sub, answer: ans };
+      document.getElementById('modalSubject').textContent = sub;
+      document.getElementById('modalQuestion').textContent = q;
+      document.getElementById('modalAnswer').textContent = ans;
+      document.getElementById('detailModal').classList.add('active');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.remove('active');
+    }
+
+    function openInWorkspace() {
+      if (activeItem) {
+        localStorage.setItem('em_last_answer', JSON.stringify({
+          question: activeItem.question,
+          subject: activeItem.subject,
+          answer: activeItem.answer,
+          mermaid_code: activeItem.mermaid_code || ''
+        }));
+        navigate('workspace');
+      }
+    }
+
+    async function deleteCurrentQuestion() {
+      if (!confirm('Remove this question from your history?')) return;
+      if (activeItem && activeItem.id) {
+        apiFetch(API + '/history/' + activeItem.id, { method: 'DELETE' }).catch(() => {});
+      }
+      closeDetailModal();
+      showToast('Question removed', 'default');
+      loadHistory();
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>

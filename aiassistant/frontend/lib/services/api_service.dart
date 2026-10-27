@@ -8,9 +8,8 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // Configurable base URL
-  // Default to the host PC's Wi-Fi / LAN IP so real devices can connect immediately
-  String baseUrl = 'http://10.47.19.103:5000/api';
+  // Production Render Cloud Base URL
+  String baseUrl = 'https://exam-mate-backend-w5t6.onrender.com/api';
   String? token;
   Map<String, dynamic>? currentUser;
 

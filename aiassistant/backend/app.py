@@ -305,7 +305,8 @@ def ask_ai():
         "citations": result["citations"],
         "is_grounded": result["is_grounded"],
         "confidence": result["confidence"],
-        "keywords": keywords
+        "keywords": keywords,
+        "mermaid_code": result.get("mermaid_code")
     })
 
 @app.route("/api/history", methods=["GET"])
@@ -591,5 +592,5 @@ def health_check():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Exam Mate AI Backend running on http://0.0.0.0:{port}")
+    print(f"Exam Mate AI Backend running on http://0.0.0.0:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)

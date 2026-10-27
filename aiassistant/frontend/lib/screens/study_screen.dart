@@ -116,8 +116,15 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     });
   }
 
-  void _showGenerateDeckDialog() {
-    String? selectedDoc = _documents.isNotEmpty ? _documents.first['id'] : null;
+  Future<void> _showGenerateDeckDialog() async {
+    // Always refresh documents first
+    try {
+      final freshDocs = await _api.getDocuments();
+      if (mounted) setState(() => _documents = freshDocs);
+    } catch (_) {}
+    if (!mounted) return;
+
+    String? selectedDoc = _documents.isNotEmpty ? _documents.first['id'].toString() : null;
     final titleController = TextEditingController();
 
     showDialog(
@@ -125,12 +132,30 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF16152B),
-          title: const Text('Generate Flashcards from Material', style: TextStyle(color: Colors.white, fontSize: 18)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Generate Flashcards', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xFF10B981), size: 18),
+                tooltip: 'Reload Documents',
+                onPressed: () async {
+                  final docs = await _api.getDocuments();
+                  setDialogState(() {
+                    _documents = docs;
+                    if (docs.isNotEmpty && selectedDoc == null) {
+                      selectedDoc = docs.first['id'].toString();
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_documents.isEmpty)
-                const Text('No uploaded documents available. Please upload in Library first.', style: TextStyle(color: Color(0xFF94A3B8)))
+                const Text('No uploaded documents available. Upload in Library first or tap refresh above.', style: TextStyle(color: Color(0xFF94A3B8)))
               else ...[
                 DropdownButtonFormField<String>(
                   value: selectedDoc,
@@ -156,7 +181,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                 onPressed: () async {
                   Navigator.pop(ctx);
                   if (selectedDoc == null) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Extracting flashcards from document...')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Groq AI extracting flashcards from document...')));
                   try {
                     await _api.generateFlashcards(documentId: selectedDoc!, deckTitle: titleController.text.trim());
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Flashcard deck generated!'), backgroundColor: Color(0xFF008A3F)));
@@ -208,8 +233,15 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     }
   }
 
-  void _showGenerateQuizDialog() {
-    String? selectedDoc = _documents.isNotEmpty ? _documents.first['id'] : null;
+  Future<void> _showGenerateQuizDialog() async {
+    // Always refresh documents first
+    try {
+      final freshDocs = await _api.getDocuments();
+      if (mounted) setState(() => _documents = freshDocs);
+    } catch (_) {}
+    if (!mounted) return;
+
+    String? selectedDoc = _documents.isNotEmpty ? _documents.first['id'].toString() : null;
     final titleController = TextEditingController();
 
     showDialog(
@@ -217,12 +249,30 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF16152B),
-          title: const Text('Generate Practice Quiz', style: TextStyle(color: Colors.white, fontSize: 18)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Generate Practice Quiz', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xFF10B981), size: 18),
+                tooltip: 'Reload Documents',
+                onPressed: () async {
+                  final docs = await _api.getDocuments();
+                  setDialogState(() {
+                    _documents = docs;
+                    if (docs.isNotEmpty && selectedDoc == null) {
+                      selectedDoc = docs.first['id'].toString();
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_documents.isEmpty)
-                const Text('No uploaded documents available. Upload in Library first.', style: TextStyle(color: Color(0xFF94A3B8)))
+                const Text('No uploaded documents available. Upload in Library first or tap refresh above.', style: TextStyle(color: Color(0xFF94A3B8)))
               else ...[
                 DropdownButtonFormField<String>(
                   value: selectedDoc,
@@ -248,7 +298,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                 onPressed: () async {
                   Navigator.pop(ctx);
                   if (selectedDoc == null) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating questions from source material...')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Groq AI generating exam questions from material...')));
                   try {
                     await _api.generateQuiz(documentId: selectedDoc!, title: titleController.text.trim());
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Practice Quiz ready!'), backgroundColor: Color(0xFF008A3F)));
@@ -274,6 +324,18 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
         backgroundColor: const Color(0xFF0D0C22),
         elevation: 0,
         title: const Text('Study Workspace', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF10B981), size: 20),
+            tooltip: 'Refresh Workspace & Material',
+            onPressed: () {
+              _loadAll();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Refreshed study materials!'), duration: Duration(seconds: 1)),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF10B981),

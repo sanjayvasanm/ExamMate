@@ -34,3 +34,4 @@ query
 *.db
 test.pdf
 powershell.bat
+**/scratch/

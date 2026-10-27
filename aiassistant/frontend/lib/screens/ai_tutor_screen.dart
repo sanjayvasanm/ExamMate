@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../widgets/mermaid_viewer.dart';
 
 class AiTutorScreen extends StatefulWidget {
   const AiTutorScreen({super.key});
@@ -14,8 +15,8 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
 
   List<dynamic> _documents = [];
   String? _selectedDocId;
-  int _selectedMarks = 5;
-  String _selectedMode = 'detailed';
+  int _selectedMarks = 16;
+  String _selectedMode = 'ai_enhanced'; // 'detailed' (Traditional) vs 'ai_enhanced' (Groq + Mermaid)
 
   bool _isLoadingDocs = true;
   bool _isGenerating = false;
@@ -29,6 +30,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
   }
 
   Future<void> _loadDocuments() async {
+    setState(() => _isLoadingDocs = true);
     try {
       final docs = await _api.getDocuments();
       if (mounted) {
@@ -36,7 +38,10 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           _documents = docs;
           _isLoadingDocs = false;
           if (docs.isNotEmpty) {
-            _selectedDocId = docs.first['id'];
+            // Keep selected if still valid, otherwise default to first
+            if (_selectedDocId == null || !docs.any((d) => d['id'].toString() == _selectedDocId)) {
+              _selectedDocId = docs.first['id'].toString();
+            }
           }
         });
       }
@@ -136,7 +141,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     final structured = _answerData?['structured_answer'] as Map<String, dynamic>?;
     final citations = (_answerData?['citations'] as List?) ?? [];
     final isGrounded = _answerData?['is_grounded'] ?? true;
-    final keywords = (_answerData?['keywords'] as List?) ?? [];
+    final mermaidCode = _answerData?['mermaid_code'] as String?;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0C22),
@@ -144,12 +149,93 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
         backgroundColor: const Color(0xFF0D0C22),
         elevation: 0,
         title: const Text('AI Exam Tutor', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF10B981), size: 20),
+            tooltip: 'Refresh Study Materials',
+            onPressed: () {
+              _loadDocuments();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Refreshed study materials!'), duration: Duration(seconds: 1)),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Mode Toggle Selector: Traditional Grounded vs AI Enhanced + Mermaid Diagram
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16152B),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedMode = 'detailed'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _selectedMode == 'detailed' ? const Color(0xFF008A3F) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.menu_book, size: 14, color: _selectedMode == 'detailed' ? Colors.white : const Color(0xFF94A3B8)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Standard Grounded',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedMode == 'detailed' ? Colors.white : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedMode = 'ai_enhanced'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _selectedMode == 'ai_enhanced' ? const Color(0xFF008A3F) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.auto_awesome, size: 14, color: _selectedMode == 'ai_enhanced' ? Colors.white : const Color(0xFF10B981)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'AI Enhanced + Diagram',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedMode == 'ai_enhanced' ? Colors.white : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Target document selector
             if (!_isLoadingDocs && _documents.isNotEmpty) ...[
               Container(
@@ -180,72 +266,49 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+            ] else if (_isLoadingDocs) ...[
+              const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))),
             ],
 
-            // Marks and Style selection
-            Row(
-              children: [
-                // Marks selector
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF16152B),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('Marks: ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                        ...[2, 5, 10].map((m) {
-                          final isSel = _selectedMarks == m;
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 6.0),
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selectedMarks = m),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isSel ? const Color(0xFF008A3F) : const Color(0xFF0D0C22),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text('$m', style: TextStyle(color: isSel ? Colors.white : const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Mode selector
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF16152B),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: ['detailed', 'concise'].map((mod) {
-                        final isSel = _selectedMode == mod;
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedMode = mod),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFF008A3F) : const Color(0xFF0D0C22),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(mod.capitalize(), style: TextStyle(color: isSel ? Colors.white : const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold)),
+            // Marks Selection: 2, 5, 10, 16 marks
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16152B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Row(
+                children: [
+                  const Text('Exam Marks: ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500)),
+                  const Spacer(),
+                  ...[2, 5, 10, 16].map((m) {
+                    final isSel = _selectedMarks == m;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedMarks = m),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSel ? const Color(0xFF008A3F) : const Color(0xFF0D0C22),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isSel ? const Color(0xFF10B981) : Colors.white10),
                           ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ],
+                          child: Text(
+                            '$m M',
+                            style: TextStyle(
+                              color: isSel ? Colors.white : const Color(0xFF94A3B8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -255,7 +318,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               maxLines: 3,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Enter your exam question (e.g., Explain the phases of a compiler with diagram)...',
+                hintText: _selectedMarks == 16
+                    ? 'Enter 16-mark essay question (e.g. Discuss in detail the architecture and workflow with diagram)...'
+                    : 'Enter your exam question (e.g. Explain the core working principles)...',
                 hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                 filled: true,
                 fillColor: const Color(0xFF16152B),
@@ -273,7 +338,12 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                 icon: _isGenerating
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                label: Text(_isGenerating ? 'Synthesizing Source Material...' : 'Generate Exam Answer', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                label: Text(
+                  _isGenerating
+                      ? (_selectedMode == 'ai_enhanced' ? 'Groq AI Synthesizing + Generating Mermaid...' : 'Synthesizing Source Material...')
+                      : 'Generate $_selectedMarks-Mark Exam Answer',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
             ),
@@ -322,7 +392,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                   ),
                 )
               else ...[
-                // Grounded Exam Answer Header
+                // Grounded Exam Answer Header Card
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -336,11 +406,14 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.verified, color: Color(0xFF10B981), size: 20),
-                              SizedBox(width: 6),
-                              Text('Grounded Academic Answer', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 14)),
+                              const Icon(Icons.verified, color: Color(0xFF10B981), size: 20),
+                              const SizedBox(width: 6),
+                              Text(
+                                _selectedMode == 'ai_enhanced' ? 'AI Enhanced Exam Solution' : 'Grounded Academic Answer',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 14),
+                              ),
                             ],
                           ),
                           Container(
@@ -354,40 +427,52 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
 
                       // Definition
                       if (structured?['definition'] != null) ...[
-                        const Text('1. Core Concept / Definition', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                        const Text('1. Core Concept / Theoretical Definition', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                         const SizedBox(height: 6),
-                        Text(structured!['definition'], style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13, height: 1.4)),
-                        const SizedBox(height: 16),
+                        Text(structured!['definition'], style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13, height: 1.45)),
+                        const SizedBox(height: 18),
                       ],
 
-                      // Explanation
+                      // Mermaid Diagram Section (If AI Enhanced)
+                      if (mermaidCode != null && mermaidCode.trim().isNotEmpty) ...[
+                        MermaidViewer(
+                          mermaidCode: mermaidCode,
+                          title: 'Concept & Process Diagram (Mermaid.js)',
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+
+                      // Explanation / Mechanism
                       if (structured?['explanation'] != null) ...[
-                        const Text('2. Detailed Explanation', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                        const Text('2. Detailed Theoretical Mechanism', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                         const SizedBox(height: 6),
-                        Text(structured!['explanation'], style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4)),
-                        const SizedBox(height: 16),
+                        Text(structured!['explanation'], style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.45)),
+                        const SizedBox(height: 18),
                       ],
 
-                      // Key Points
+                      // Key Examination Points
                       if (structured?['points'] != null && (structured!['points'] as List).isNotEmpty) ...[
-                        const Text('3. Key Examination Points', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
-                        const SizedBox(height: 6),
+                        Text(
+                          _selectedMarks == 16 ? '3. Comprehensive Working Mechanism & Component Analysis' : '3. Key Examination Points',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                        ),
+                        const SizedBox(height: 8),
                         ...(structured!['points'] as List).map((pt) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6.0),
+                          padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('• ', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
-                              Expanded(child: Text(pt.toString(), style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13, height: 1.35))),
+                              const Text('• ', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 14)),
+                              Expanded(child: Text(pt.toString(), style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13, height: 1.4))),
                             ],
                           ),
                         )),
                         const SizedBox(height: 16),
                       ],
 
-                      // Examples
+                      // Examples / Real World Case Studies
                       if (structured?['examples'] != null && (structured!['examples'] as List).isNotEmpty) ...[
-                        const Text('4. Source Examples', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                        const Text('4. Practical Examples & Applications', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                         const SizedBox(height: 6),
                         ...(structured!['examples'] as List).map((ex) => Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
@@ -398,7 +483,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
 
                       // Conclusion
                       if (structured?['conclusion'] != null) ...[
-                        const Text('5. Conclusion', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                        const Text('5. Academic Summary & Assessment', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                         const SizedBox(height: 6),
                         Text(structured!['conclusion'], style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4)),
                       ],
@@ -406,7 +491,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                       // Verifiable Citations
                       if (citations.isNotEmpty) ...[
                         const Divider(color: Colors.white10, height: 28),
-                        const Text('Source Page Citations (Tap to inspect source text):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 13)),
+                        const Text('Source Page Citations (Tap to verify against original text):', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 13)),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
@@ -430,8 +515,4 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
       ),
     );
   }
-}
-
-extension StringExtension on String {
-  String capitalize() => "${this[0].toUpperCase()}${substring(1)}";
 }

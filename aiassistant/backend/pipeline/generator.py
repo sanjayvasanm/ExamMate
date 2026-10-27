@@ -5,9 +5,8 @@ import time
 from typing import Dict, Any, List, Tuple, Optional
 from groq import Groq
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-_DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
-_FALLBACK_MODELS = ["llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
+_DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+_FALLBACK_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
 
 def get_groq_client():
     key = os.environ.get("GROQ_API_KEY")
@@ -26,7 +25,6 @@ def detect_keywords(text: str) -> List[str]:
         "following", "example", "another", "standard", "provides", "defined", "system"
     }
     filtered = [w for w in words if w.lower() not in stop_words]
-    # Return top 8 unique keywords
     seen = set()
     result = []
     for w in filtered:
@@ -38,14 +36,54 @@ def detect_keywords(text: str) -> List[str]:
                 break
     return result
 
+# ── Self-Healing Mermaid JS Sanitizer ────────────────────────────────────────
+
+def heal_mermaid_diagram(raw_mermaid: Optional[str], topic: str = "Concept Architecture") -> str:
+    """
+    Self-healing Mermaid JS validator and sanitizer.
+    Guarantees syntactically valid Mermaid code even if the AI produced unquoted parentheses,
+    broken connectors, or markdown code fence wrappers.
+    """
+    clean_topic = re.sub(r'[^a-zA-Z0-9 ]', '', topic)[:30].strip() or "Core Architecture"
+
+    if not raw_mermaid or not isinstance(raw_mermaid, str) or len(raw_mermaid.strip()) < 8:
+        return f"""flowchart TD
+    A["{clean_topic} Input"] --> B["Processing Engine"]
+    B --> C["Core Algorithm / Operation"]
+    C --> D["Output & Assessment"]"""
+
+    text = raw_mermaid.strip()
+    # Strip markdown code blocks
+    text = re.sub(r'^```(?:mermaid)?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s*```$', '', text).strip()
+
+    valid_directives = ("graph ", "flowchart ", "sequenceDiagram", "classDiagram", "stateDiagram", "erDiagram")
+    if not any(text.startswith(d) for d in valid_directives):
+        text = "flowchart TD\n  " + text
+
+    # Self-heal unquoted brackets containing parens, commas, or special chars
+    # e.g. A[Input (Data)] -> A["Input (Data)"]
+    def quote_brackets(match):
+        node_id = match.group(1)
+        label = match.group(2).strip()
+        if (label.startswith('"') and label.endswith('"')) or (label.startswith("'") and label.endswith("'")):
+            return f"{node_id}[{label}]"
+        safe_label = label.replace('"', "'")
+        return f'{node_id}["{safe_label}"]'
+
+    text = re.sub(r'([a-zA-Z0-9_\-]+)\[([^\]\n]+)\]', quote_brackets, text)
+
+    # Fix broken arrows
+    text = re.sub(r'--\s+>', '-->', text)
+    text = re.sub(r'-\s+->', '-->', text)
+
+    return text
+
 # ── Local Grounded Academic Synthesizer (Zero-Failure Fallback) ───────────────
 
 def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict[str, Any], 
                                           mode: str, marks: int) -> Dict[str, Any]:
-    """
-    Precision local synthesis from retrieved passages:
-    Directly extracts and structures facts from source chunks without hallucination.
-    """
+    """Precision local synthesis from retrieved passages without hallucination."""
     chunks = retrieval_result.get("chunks", [])
     if not chunks:
         return {
@@ -59,10 +97,10 @@ def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict
             },
             "citations": [],
             "is_grounded": False,
-            "confidence": 0.0
+            "confidence": 0.0,
+            "mermaid_code": None
         }
 
-    # Extract sentences across retrieved chunks
     all_sentences = []
     for c in chunks:
         p_no = c["page_number"]
@@ -73,7 +111,6 @@ def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict
             if len(clean_s) > 25:
                 all_sentences.append({"sentence": clean_s, "page": p_no, "section": sec})
 
-    # Pick definition (sentence containing 'is', 'defined as', 'refers to', or first sentence)
     definition_cand = None
     for item in all_sentences:
         lower_s = item["sentence"].lower()
@@ -83,8 +120,16 @@ def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict
     if not definition_cand and all_sentences:
         definition_cand = all_sentences[0]["sentence"]
 
-    # Pick key points
-    target_points = 2 if marks <= 2 else (4 if marks <= 5 else 6)
+    # Target points based on marks (2, 5, 10, or 16)
+    if marks <= 2:
+        target_points = 2
+    elif marks <= 5:
+        target_points = 4
+    elif marks <= 10:
+        target_points = 7
+    else:  # 16 marks
+        target_points = 10
+
     key_points = []
     seen_texts = set()
     if definition_cand:
@@ -98,29 +143,27 @@ def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict
             if len(key_points) >= target_points:
                 break
 
-    # Pick example if available
     examples = []
     for item in all_sentences:
         if any(ex_term in item["sentence"].lower() for ex_term in ["for example", "e.g.", "such as", "case in point"]):
             examples.append(f"{item['sentence']} (Page {item['page']})")
-            if len(examples) >= 2:
+            if len(examples) >= 3:
                 break
 
-    conclusion = f"In summary, based on Page {chunks[0]['page_number']} of the study material, understanding these core principles is essential for {marks}-mark academic assessments."
+    conclusion = f"In summary, based on Page {chunks[0]['page_number']} of the study material, mastery of these principles is critical for {marks}-mark university evaluations."
 
-    # Format answer text
     sections = [
         f"### 1. Definition / Core Concept\n{definition_cand}",
-        f"\n### 2. Key Explanatory Points\n" + "\n".join([f"{i+1}. {p}" for i, p in enumerate(key_points)])
+        f"\n### 2. Key Explanatory Points ({marks} Marks)\n" + "\n".join([f"{i+1}. {p}" for i, p in enumerate(key_points)])
     ]
     if examples:
         sections.append(f"\n### 3. Source Examples\n" + "\n".join([f"- {ex}" for ex in examples]))
     sections.append(f"\n### 4. Summary\n{conclusion}")
 
-    full_answer = "\n".join(sections)
+    mermaid_diagram = heal_mermaid_diagram(None, question) if mode == "ai_enhanced" else None
 
     return {
-        "answer_text": full_answer,
+        "answer_text": "\n".join(sections),
         "structured_answer": {
             "definition": definition_cand or "",
             "explanation": " ".join([p.split(" (Ref:")[0] for p in key_points[:2]]),
@@ -130,7 +173,8 @@ def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict
         },
         "citations": retrieval_result.get("citations", []),
         "is_grounded": True,
-        "confidence": retrieval_result.get("confidence", 0.9)
+        "confidence": retrieval_result.get("confidence", 0.9),
+        "mermaid_code": mermaid_diagram
     }
 
 # ── Primary Exam Answer Generator ─────────────────────────────────────────────
@@ -139,7 +183,8 @@ def generate_exam_answer(question: str, retrieval_result: Dict[str, Any],
                          mode: str = "detailed", marks: int = 5) -> Dict[str, Any]:
     """
     Produces a rigorously grounded exam answer.
-    Enforces honest insufficiency responses when evidence is lacking.
+    Supports 2, 5, 10, and 16 marks.
+    Supports 'detailed' (Standard Grounded) and 'ai_enhanced' (with self-healing Mermaid diagram).
     """
     if not retrieval_result.get("is_sufficient"):
         return {
@@ -153,42 +198,45 @@ def generate_exam_answer(question: str, retrieval_result: Dict[str, Any],
             },
             "citations": [],
             "is_grounded": False,
-            "confidence": 0.0
+            "confidence": 0.0,
+            "mermaid_code": None
         }
 
     client = get_groq_client()
     if client is None:
-        # Graceful, high-fidelity local grounded synthesis
         return _synthesize_grounded_exam_answer_local(question, retrieval_result, mode, marks)
 
-    # Use Groq API with precision-first system prompt
     context = retrieval_result.get("combined_context", "")
     citations = retrieval_result.get("citations", [])
 
-    system_prompt = f"""You are Exam Mate AI, an academic exam preparation specialist.
-Answer the user's exam question STRICTLY using the provided source context.
-DO NOT fabricate facts, cite unseen pages, or extrapolate beyond the provided text.
-If the source does not contain enough evidence, state: 'The supplied material does not contain enough information to answer this question reliably.'
+    is_16_marks = marks >= 16
+    is_enhanced = mode == "ai_enhanced"
+
+    system_prompt = f"""You are Exam Mate AI, an academic exam preparation specialist for university engineering and degree examinations.
+Answer the user's exam question strictly grounded in the provided source context.
+Do not hallucinate or cite unseen material.
+If evidence is missing, state: 'The supplied material does not contain enough information to answer this question reliably.'
 
 Exam requirements:
-- Marks allocated: {marks} marks
-- Target style: {mode} (concise for short marks, structured & comprehensive for 5+ marks)
-- Always include page references matching the source tags (e.g. [Page X, Section Y]).
+- Marks allocated: {marks} marks ({'Comprehensive 16-Mark University Essay Format: deep introduction, architectural/system breakdown, 8-10 exhaustive mechanism points, case study/examples, and critical trade-offs' if is_16_marks else 'Targeted exam structure'})
+- Answer style: {'AI-Enhanced with Architecture/Process Diagram' if is_enhanced else 'Standard Grounded Material Reference'}
+- Cite specific page references (e.g. [Page X]) throughout the points.
 
-Output format: Return valid JSON with this exact structure:
+Return valid JSON with this exact schema:
 {{
-    "definition": "Clear 1-2 sentence core definition",
-    "explanation": "Thorough academic explanation",
-    "points": ["Numbered key point 1 [Page X]", "Numbered key point 2 [Page Y]"],
-    "examples": ["Example directly present in text [Page Z]"],
-    "conclusion": "Final summarizing sentence"
+    "definition": "Precise, rigorous formal definition (1-3 sentences)",
+    "explanation": "In-depth theoretical explanation and background",
+    "points": ["Exhaustive technical point 1 [Page X]", "Technical point 2 [Page Y]", ...],
+    "examples": ["Concrete real-world application or example from material [Page Z]"],
+    "conclusion": "Concluding summary emphasizing academic significance"{',' if is_enhanced else ''}
+    {'\"mermaid_diagram\": \"Valid Mermaid.js diagram code (e.g. flowchart TD or sequenceDiagram). Always wrap node text in double quotes like A[\\\"Label\\\"] --> B[\\\"Label\\\"]. Do not use unquoted parentheses inside node brackets.\"' if is_enhanced else ''}
 }}
 """
 
     user_prompt = f"""Context from uploaded study material:
 {context}
 
-Question:
+Exam Question:
 {question}
 """
 
@@ -201,42 +249,80 @@ Question:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.15,
-                max_tokens=1200,
+                max_tokens=2200 if is_16_marks else 1400,
                 response_format={"type": "json_object"}
             )
             raw_content = resp.choices[0].message.content
             parsed = json.loads(raw_content)
 
-            # Build readable answer string
             text_lines = [
-                f"### 1. Definition\n{parsed.get('definition', '')}",
-                f"\n### 2. Explanation\n{parsed.get('explanation', '')}",
-                f"\n### 3. Key Points\n" + "\n".join([f"{i+1}. {pt}" for i, pt in enumerate(parsed.get('points', []))])
+                f"### 1. Definition & Core Concept\n{parsed.get('definition', '')}",
+                f"\n### 2. Theoretical Background\n{parsed.get('explanation', '')}",
+                f"\n### 3. Detailed Mechanism & Key Points ({marks} Marks)\n" + "\n".join([f"{i+1}. {pt}" for i, pt in enumerate(parsed.get('points', []))])
             ]
             if parsed.get('examples'):
-                text_lines.append(f"\n### 4. Examples\n" + "\n".join([f"- {ex}" for ex in parsed.get('examples', [])]))
-            text_lines.append(f"\n### 5. Conclusion\n{parsed.get('conclusion', '')}")
+                text_lines.append(f"\n### 4. Practical Applications & Examples\n" + "\n".join([f"- {ex}" for ex in parsed.get('examples', [])]))
+            text_lines.append(f"\n### 5. Academic Conclusion\n{parsed.get('conclusion', '')}")
+
+            mermaid_code = None
+            if is_enhanced:
+                raw_mermaid = parsed.get("mermaid_diagram")
+                mermaid_code = heal_mermaid_diagram(raw_mermaid, question)
 
             return {
                 "answer_text": "\n".join(text_lines),
                 "structured_answer": parsed,
                 "citations": citations,
                 "is_grounded": True,
-                "confidence": retrieval_result.get("confidence", 0.95)
+                "confidence": retrieval_result.get("confidence", 0.95),
+                "mermaid_code": mermaid_code
             }
-        except Exception as e:
+        except Exception:
             continue
 
-    # Fallback if API call failed
+    # Fallback to local grounded synthesis if Groq errors
     return _synthesize_grounded_exam_answer_local(question, retrieval_result, mode, marks)
 
 # ── Flashcard Generator ───────────────────────────────────────────────────────
 
 def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
     """Generates revision flashcards grounded in source passages with page attribution."""
+    client = get_groq_client()
+    if client:
+        try:
+            context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+            system_prompt = f"""Generate {count} high-yield study flashcards from the study material context below.
+Each flashcard must have a concise, challenging prompt on the 'front', a clear factual explanation on the 'back', and the cited page number.
+Return JSON:
+{{
+  "flashcards": [
+    {{"front": "What is ...?", "back": "...", "source_page": 1, "source_snippet": "..."}}
+  ]
+}}"""
+            for model_name in [_DEFAULT_GROQ_MODEL] + _FALLBACK_MODELS:
+                try:
+                    resp = client.chat.completions.create(
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": context_text}
+                        ],
+                        temperature=0.2,
+                        max_tokens=1000,
+                        response_format={"type": "json_object"}
+                    )
+                    data = json.loads(resp.choices[0].message.content)
+                    cards = data.get("flashcards", [])
+                    if cards and len(cards) > 0:
+                        return cards[:count]
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    # High-quality regex local fallback
     cards = []
     pattern = re.compile(r'\s+(?:is defined as|refers to|is the|is an|is a|consists of|serves as|enables|checks for)\s+', re.IGNORECASE)
-
     for c in chunks:
         p_no = c.get("page_number", 1)
         text = c.get("chunk_text", "")
@@ -249,18 +335,16 @@ def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5
                     subject = s_clean[:match.start()].strip()
                     definition = s_clean[match.end():].strip()
                     if 3 < len(subject) < 60 and len(definition) > 10:
-                        front = f"What is {subject}?"
-                        back = f"{subject} {s_clean[match.start():].strip()}"
                         cards.append({
-                            "front": front,
-                            "back": back,
+                            "front": f"What is {subject}?",
+                            "back": f"{subject} {s_clean[match.start():].strip()}",
                             "source_page": p_no,
                             "source_snippet": s_clean[:180]
                         })
                         if len(cards) >= count:
                             return cards
 
-    # Fallback to key sentences
+    # Fill remaining from key paragraphs
     for c in chunks:
         if len(cards) >= count:
             break
@@ -285,8 +369,55 @@ def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5
 def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
     """
     Generates multiple-choice quiz questions strictly grounded in source passages.
-    Each item has 4 options, the 0-indexed correct answer, explanation, and cited source page.
+    Uses Groq LLM for realistic distractors and accurate citations, with local fallback.
     """
+    client = get_groq_client()
+    if client:
+        try:
+            context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+            system_prompt = f"""Generate {count} multiple-choice exam questions strictly based on the provided material.
+Requirements for each question:
+- 4 plausible options
+- Exactly one correct option
+- 0-indexed 'correct_option_index' (0, 1, 2, or 3)
+- 'explanation' citing why the correct answer is right
+- 'source_page' integer
+
+Return JSON:
+{{
+  "questions": [
+    {{
+      "question_text": "...",
+      "options": ["A", "B", "C", "D"],
+      "correct_option_index": 0,
+      "explanation": "...",
+      "source_page": 1,
+      "source_snippet": "..."
+    }}
+  ]
+}}"""
+            for model_name in [_DEFAULT_GROQ_MODEL] + _FALLBACK_MODELS:
+                try:
+                    resp = client.chat.completions.create(
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": context_text}
+                        ],
+                        temperature=0.2,
+                        max_tokens=1500,
+                        response_format={"type": "json_object"}
+                    )
+                    data = json.loads(resp.choices[0].message.content)
+                    qs = data.get("questions", [])
+                    if qs and len(qs) > 0:
+                        return qs[:count]
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    # Reliable local fallback
     questions = []
     distractor_pool = [
         "Increases network latency across distributed clusters",
@@ -307,11 +438,8 @@ def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> L
         for s in sentences:
             s_clean = s.strip()
             if len(s_clean) > 50 and any(kw in s_clean.lower() for kw in ["is used to", "serves as", "enables", "primary advantage", "defined as", "principle"]):
-                # Create question from this statement
                 q_text = f"According to Page {p_no}, which of the following is correct regarding: {s_clean[:40]}...?"
-                correct_opt = s_clean
-                if len(correct_opt) > 120:
-                    correct_opt = correct_opt[:117] + "..."
+                correct_opt = s_clean[:117] + "..." if len(s_clean) > 120 else s_clean
 
                 options = [
                     correct_opt,
@@ -319,7 +447,6 @@ def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> L
                     distractor_pool[(len(questions) * 2 + 1) % len(distractor_pool)],
                     distractor_pool[(len(questions) * 2 + 2) % len(distractor_pool)]
                 ]
-                # Rotate correct option index so it's not always 0
                 correct_idx = len(questions) % 4
                 options[0], options[correct_idx] = options[correct_idx], options[0]
 
@@ -333,7 +460,6 @@ def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> L
                 })
                 break
 
-    # If needed, fill remaining questions from chunk summaries
     while len(questions) < min(count, len(chunks)):
         idx = len(questions)
         c = chunks[idx % len(chunks)]

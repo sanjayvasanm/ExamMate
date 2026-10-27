@@ -18,6 +18,151 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  void _showServerConfigDialog() {
+    final api = ApiService();
+    final urlController = TextEditingController(text: api.baseUrl);
+    bool testing = false;
+    String? testResult;
+    bool isSuccess = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF16152B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.dns, color: Color(0xFF10B981)),
+              SizedBox(width: 10),
+              Text('Server Settings', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Set the backend API URL. If testing on a real phone, use your computer\'s Wi-Fi IP address (both devices must be on the same Wi-Fi network):',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8), height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: urlController,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    labelText: 'Backend API URL',
+                    labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                    filled: true,
+                    fillColor: const Color(0xFF0D0C22),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Quick Presets:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      label: const Text('PC (10.47.19.103)', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFF0D0C22),
+                      labelStyle: const TextStyle(color: Color(0xFF10B981)),
+                      onPressed: () {
+                        setDialogState(() => urlController.text = 'http://10.47.19.103:5000/api');
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Emulator (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFF0D0C22),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      onPressed: () {
+                        setDialogState(() => urlController.text = 'http://10.0.2.2:5000/api');
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Localhost (127.0.0.1)', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFF0D0C22),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      onPressed: () {
+                        setDialogState(() => urlController.text = 'http://127.0.0.1:5000/api');
+                      },
+                    ),
+                  ],
+                ),
+                if (testResult != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSuccess ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isSuccess ? Colors.green : Colors.redAccent),
+                    ),
+                    child: Text(
+                      testResult!,
+                      style: TextStyle(fontSize: 11, color: isSuccess ? const Color(0xFF10B981) : Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: testing
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        testing = true;
+                        testResult = null;
+                      });
+                      final tempApi = ApiService();
+                      final oldUrl = tempApi.baseUrl;
+                      tempApi.baseUrl = urlController.text.trim();
+                      final res = await tempApi.checkHealth();
+                      if (res['status'] == 'healthy') {
+                        setDialogState(() {
+                          testing = false;
+                          isSuccess = true;
+                          testResult = '✓ Connected to Exam Mate AI (${res["version"]})!';
+                        });
+                      } else {
+                        tempApi.baseUrl = oldUrl;
+                        setDialogState(() {
+                          testing = false;
+                          isSuccess = false;
+                          testResult = '✗ Cannot reach server. Verify PC & phone Wi-Fi.';
+                        });
+                      }
+                    },
+              child: testing
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Test Connection', style: TextStyle(color: Color(0xFF38BDF8))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F)),
+              onPressed: () {
+                final trimmed = urlController.text.trim();
+                if (trimmed.isNotEmpty) {
+                  api.baseUrl = trimmed;
+                  setState(() {});
+                }
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     setState(() {
       _isLoading = true;
@@ -57,10 +202,41 @@ class _AuthScreenState extends State<AuthScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Server Config Pill Button at Top
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: _showServerConfigDialog,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16152B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.12)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.dns_rounded, size: 13, color: Color(0xFF10B981)),
+                          const SizedBox(width: 6),
+                          Text(
+                            ApiService().baseUrl.replaceAll('http://', '').replaceAll('/api', ''),
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.tune_rounded, size: 13, color: Color(0xFF10B981)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // App Logo & Headline
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -200,19 +376,43 @@ class _AuthScreenState extends State<AuthScreen> {
                       // Error message banner
                       if (_errorMessage != null) ...[
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.red.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.red.withOpacity(0.35)),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13, height: 1.3)),
+                                  ),
+                                ],
                               ),
+                              if (_errorMessage!.contains('Connection refused') ||
+                                  _errorMessage!.contains('SocketException') ||
+                                  _errorMessage!.contains('ClientException') ||
+                                  _errorMessage!.contains('Failed host lookup')) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.settings_ethernet, size: 16, color: Color(0xFF38BDF8)),
+                                    label: const Text('Change Server IP (Settings)', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFF38BDF8), width: 0.8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: _showServerConfigDialog,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

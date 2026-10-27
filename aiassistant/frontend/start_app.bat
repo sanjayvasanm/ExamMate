@@ -5,7 +5,10 @@ color 0B
 set "PATH=%SystemRoot%\System32\WindowsPowerShell\v1.0;%SystemRoot%\System32;%SystemRoot%;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32;C:\Program Files\PowerShell\7;%PATH%"
 
 :: Detect Android Studio bundled Java (JBR 17/21) or standard JDK 17/21
-if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
+if exist "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot\bin\java.exe" (
+    set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot"
+    set "PATH=C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot\bin;%PATH%"
+) else if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
     set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
     set "PATH=C:\Program Files\Android\Android Studio\jbr\bin;%PATH%"
 ) else if exist "C:\Program Files\Android\Android Studio\jre\bin\java.exe" (

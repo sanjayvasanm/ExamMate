@@ -9,8 +9,8 @@ class ApiService {
   ApiService._internal();
 
   // Configurable base URL
-  // Default to 10.0.2.2 for Android Emulator, or localhost:5000 for web/desktop
-  String baseUrl = 'http://127.0.0.1:5000/api';
+  // Default to the host PC's Wi-Fi / LAN IP so real devices can connect immediately
+  String baseUrl = 'http://10.47.19.103:5000/api';
   String? token;
   Map<String, dynamic>? currentUser;
 

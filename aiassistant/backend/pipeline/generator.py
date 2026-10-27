@@ -213,24 +213,28 @@ def generate_exam_answer(question: str, retrieval_result: Dict[str, Any],
     is_16_marks = marks >= 16
     is_enhanced = mode == "ai_enhanced"
 
+    essay_format = "Comprehensive 16-Mark University Essay Format: deep introduction, architectural/system breakdown, 8-10 exhaustive mechanism points, case study/examples, and critical trade-offs" if is_16_marks else "Targeted exam structure"
+    answer_style = "AI-Enhanced with Architecture/Process Diagram" if is_enhanced else "Standard Grounded Material Reference"
+    comma_sep = "," if is_enhanced else ""
+    mermaid_field = '\n    "mermaid_diagram": "Valid Mermaid.js diagram code (e.g. flowchart TD or sequenceDiagram). Always wrap node text in double quotes like A[\\"Label\\"] --> B[\\"Label\\"]. Do not use unquoted parentheses inside node brackets."' if is_enhanced else ""
+
     system_prompt = f"""You are Exam Mate AI, an academic exam preparation specialist for university engineering and degree examinations.
 Answer the user's exam question strictly grounded in the provided source context.
 Do not hallucinate or cite unseen material.
 If evidence is missing, state: 'The supplied material does not contain enough information to answer this question reliably.'
 
 Exam requirements:
-- Marks allocated: {marks} marks ({'Comprehensive 16-Mark University Essay Format: deep introduction, architectural/system breakdown, 8-10 exhaustive mechanism points, case study/examples, and critical trade-offs' if is_16_marks else 'Targeted exam structure'})
-- Answer style: {'AI-Enhanced with Architecture/Process Diagram' if is_enhanced else 'Standard Grounded Material Reference'}
+- Marks allocated: {marks} marks ({essay_format})
+- Answer style: {answer_style}
 - Cite specific page references (e.g. [Page X]) throughout the points.
 
 Return valid JSON with this exact schema:
 {{
     "definition": "Precise, rigorous formal definition (1-3 sentences)",
     "explanation": "In-depth theoretical explanation and background",
-    "points": ["Exhaustive technical point 1 [Page X]", "Technical point 2 [Page Y]", ...],
+    "points": ["Exhaustive technical point 1 [Page X]", "Technical point 2 [Page Y]"],
     "examples": ["Concrete real-world application or example from material [Page Z]"],
-    "conclusion": "Concluding summary emphasizing academic significance"{',' if is_enhanced else ''}
-    {'\"mermaid_diagram\": \"Valid Mermaid.js diagram code (e.g. flowchart TD or sequenceDiagram). Always wrap node text in double quotes like A[\\\"Label\\\"] --> B[\\\"Label\\\"]. Do not use unquoted parentheses inside node brackets.\"' if is_enhanced else ''}
+    "conclusion": "Concluding summary emphasizing academic significance"{comma_sep}{mermaid_field}
 }}
 """
 

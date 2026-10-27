@@ -11,31 +11,23 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService _api = ApiService();
-  final TextEditingController _urlController = TextEditingController();
   Map<String, dynamic>? _healthInfo;
   bool _isCheckingHealth = false;
 
   @override
   void initState() {
     super.initState();
-    _urlController.text = _api.baseUrl;
     _checkServer();
   }
 
   Future<void> _checkServer() async {
     setState(() => _isCheckingHealth = true);
     final h = await _api.checkHealth();
-    if (mounted) setState(() { _healthInfo = h; _isCheckingHealth = false; });
-  }
-
-  void _saveUrl() {
-    final newUrl = _urlController.text.trim();
-    if (newUrl.isNotEmpty) {
-      _api.baseUrl = newUrl;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('API URL updated: $newUrl'), backgroundColor: const Color(0xFF008A3F)),
-      );
-      _checkServer();
+    if (mounted) {
+      setState(() {
+        _healthInfo = h;
+        _isCheckingHealth = false;
+      });
     }
   }
 
@@ -49,7 +41,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D0C22),
         elevation: 0,
-        title: const Text('Profile & Settings', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Profile & Settings',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -71,7 +66,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: const Color(0xFF008A3F).withOpacity(0.2),
                     child: Text(
                       (user?['name'] ?? 'S')[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -79,14 +78,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(user?['name'] ?? 'Student User', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(
+                          user?['name'] ?? 'Student User',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(user?['email'] ?? 'student@exam.ai', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                        Text(
+                          user?['email'] ?? 'student@exam.ai',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFF008A3F).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('Exam Mate AI Student', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF008A3F).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Exam Mate AI Scholar',
+                            style: TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -94,10 +116,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Server Configuration Card
+            // AI Cloud Engine Status Card (NO URLs shown)
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: const Color(0xFF16152B),
@@ -107,54 +130,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Backend Connection URL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Use "http://10.0.2.2:5000/api" for Android Emulator, or your Render backend URL for cloud.',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _urlController,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFF0D0C22),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.check, color: Color(0xFF10B981)),
-                        onPressed: _saveUrl,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            isHealthy ? Icons.check_circle : Icons.error_outline,
-                            color: isHealthy ? const Color(0xFF10B981) : Colors.redAccent,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            isHealthy ? 'Connected & Verified' : 'Server Unreachable',
-                            style: TextStyle(
-                              color: isHealthy ? const Color(0xFF10B981) : Colors.redAccent,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.cloud_done, color: Color(0xFF10B981), size: 20),
                       ),
-                      TextButton(
-                        onPressed: _isCheckingHealth ? null : _checkServer,
-                        child: Text(_isCheckingHealth ? 'Testing...' : 'Test Connection', style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12)),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Exam Mate AI Engine',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isHealthy ? const Color(0xFF10B981).withOpacity(0.15) : Colors.orangeAccent.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isHealthy ? const Color(0xFF10B981).withOpacity(0.4) : Colors.orangeAccent.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isHealthy ? const Color(0xFF10B981) : Colors.orangeAccent,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isHealthy ? 'Connected' : 'Connecting',
+                              style: TextStyle(
+                                color: isHealthy ? const Color(0xFF10B981) : Colors.orangeAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildEngineFeature(
+                    icon: Icons.bolt,
+                    title: 'Flashcards & Quiz Generation',
+                    subtitle: 'Powered by Google Gemini 3.5 Flash',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildEngineFeature(
+                    icon: Icons.auto_graph,
+                    title: '16-Mark University Answers',
+                    subtitle: 'Groq LLM with Self-Healing Mermaid.js Diagrams',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildEngineFeature(
+                    icon: Icons.verified,
+                    title: 'Source Grounding & Page Citations',
+                    subtitle: 'Strict Academic Verification Pipeline',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // App Information Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16152B),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Application Details',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailRow('App Version', '2.0.0-precision (Enterprise)'),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('Mode', 'Full Cloud Integration'),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('Security', 'Encrypted JWT & Token Auth'),
                 ],
               ),
             ),
@@ -170,17 +241,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   widget.onLogout();
                 },
                 icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                label: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Sign Out',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.withOpacity(0.12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.red.withOpacity(0.3))),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                  ),
                   elevation: 0,
                 ),
               ),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEngineFeature({required IconData icon, required String title, required String subtitle}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF38BDF8), size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }

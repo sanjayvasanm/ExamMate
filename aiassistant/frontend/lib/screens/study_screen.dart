@@ -116,6 +116,58 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     });
   }
 
+  void _showProgressDialog(String title, String subtitle) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: const Color(0xFF16152B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: const Color(0xFF10B981).withOpacity(0.3)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF10B981),
+                    strokeWidth: 3.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showGenerateDeckDialog() async {
     // Always refresh documents first
     try {
@@ -130,7 +182,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF16152B),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -179,15 +231,38 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
             if (_documents.isNotEmpty)
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(ctx);
                   if (selectedDoc == null) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Groq AI extracting flashcards from document...')));
+                  final docId = selectedDoc!;
+                  final deckTitle = titleController.text.trim();
+                  Navigator.pop(ctx);
+
+                  _showProgressDialog(
+                    'Generating Flashcards...',
+                    'Google Gemini AI is extracting key concepts and formulas from your material.',
+                  );
+
                   try {
-                    await _api.generateFlashcards(documentId: selectedDoc!, deckTitle: titleController.text.trim());
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Flashcard deck generated!'), backgroundColor: Color(0xFF008A3F)));
-                    _loadDecks();
+                    await _api.generateFlashcards(documentId: docId, deckTitle: deckTitle);
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading
+                      await _loadDecks();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Flashcard deck generated and ready for study! 🎉'),
+                          backgroundColor: Color(0xFF008A3F),
+                        ),
+                      );
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Generation failed: $e'), backgroundColor: Colors.red));
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Generation failed: $e'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F)),
@@ -247,7 +322,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF16152B),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -296,15 +371,38 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
             if (_documents.isNotEmpty)
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(ctx);
                   if (selectedDoc == null) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Groq AI generating exam questions from material...')));
+                  final docId = selectedDoc!;
+                  final quizTitle = titleController.text.trim();
+                  Navigator.pop(ctx);
+
+                  _showProgressDialog(
+                    'Generating Practice Quiz...',
+                    'Google Gemini AI is formulating multiple-choice exam questions from your material.',
+                  );
+
                   try {
-                    await _api.generateQuiz(documentId: selectedDoc!, title: titleController.text.trim());
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Practice Quiz ready!'), backgroundColor: Color(0xFF008A3F)));
-                    _loadQuizzes();
+                    await _api.generateQuiz(documentId: docId, title: quizTitle);
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading
+                      await _loadQuizzes();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Practice Quiz created! Ready to test your mastery. 🎯'),
+                          backgroundColor: Color(0xFF008A3F),
+                        ),
+                      );
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Quiz generation failed: $e'), backgroundColor: Colors.red));
+                    if (mounted) {
+                      Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Quiz generation failed: $e'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F)),
@@ -382,24 +480,35 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: _isLoadingDecks
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF008A3F)))
-                : _decks.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+            child: RefreshIndicator(
+              color: const Color(0xFF10B981),
+              backgroundColor: const Color(0xFF16152B),
+              onRefresh: _loadAll,
+              child: _isLoadingDecks
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF008A3F)))
+                  : _decks.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            const Icon(Icons.style_outlined, size: 48, color: Color(0xFF94A3B8)),
-                            const SizedBox(height: 12),
-                            const Text('No flashcard decks yet.', style: TextStyle(color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 8),
-                            const Text('Tap "New Deck" to generate cards from your material.', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.style_outlined, size: 48, color: Color(0xFF94A3B8)),
+                                  SizedBox(height: 12),
+                                  Text('No flashcard decks yet.', style: TextStyle(color: Color(0xFF94A3B8))),
+                                  SizedBox(height: 8),
+                                  Text('Tap "New Deck" to generate cards from your material.', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _decks.length,
-                        itemBuilder: (ctx, idx) {
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _decks.length,
+                          itemBuilder: (ctx, idx) {
                           final deck = _decks[idx];
                           final total = deck['total_cards'] ?? 0;
                           final due = deck['due_cards'] ?? 0;
@@ -426,6 +535,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                           );
                         },
                       ),
+            ),
           ),
         ],
       ),
@@ -572,61 +682,73 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: _isLoadingQuizzes
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF008A3F)))
-                : _quizzes.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+            child: RefreshIndicator(
+              color: const Color(0xFF10B981),
+              backgroundColor: const Color(0xFF16152B),
+              onRefresh: _loadAll,
+              child: _isLoadingQuizzes
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF008A3F)))
+                  : _quizzes.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            const Icon(Icons.quiz_outlined, size: 48, color: Color(0xFF94A3B8)),
-                            const SizedBox(height: 12),
-                            const Text('No quizzes created yet.', style: TextStyle(color: Color(0xFF94A3B8))),
-                            const SizedBox(height: 8),
-                            const Text('Tap "New Quiz" to generate MCQ practice questions.', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _quizzes.length,
-                        itemBuilder: (ctx, idx) {
-                          final q = _quizzes[idx];
-                          final best = q['best_score'];
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            color: const Color(0xFF16152B),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.06))),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              leading: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(color: const Color(0xFF008A3F).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                                child: const Icon(Icons.quiz, color: Color(0xFF10B981)),
-                              ),
-                              title: Text(q['title'] ?? 'Quiz', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                              subtitle: Text('${q['total_questions']} Questions • ${q['subject']}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                            const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  if (best != null)
-                                    Container(
-                                      margin: const EdgeInsets.only(right: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: const Color(0xFF008A3F).withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                                      child: Text('$best%', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 12)),
-                                    ),
-                                  ElevatedButton(
-                                    onPressed: () => _startQuiz(q['id']),
-                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                                    child: const Text('Start', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ),
+                                  Icon(Icons.quiz_outlined, size: 48, color: Color(0xFF94A3B8)),
+                                  SizedBox(height: 12),
+                                  Text('No quizzes created yet.', style: TextStyle(color: Color(0xFF94A3B8))),
+                                  SizedBox(height: 8),
+                                  Text('Tap "New Quiz" to generate MCQ practice questions.', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
                                 ],
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _quizzes.length,
+                          itemBuilder: (ctx, idx) {
+                            final q = _quizzes[idx];
+                            final best = q['best_score'];
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              color: const Color(0xFF16152B),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.06))),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: const Color(0xFF008A3F).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                                  child: const Icon(Icons.quiz, color: Color(0xFF10B981)),
+                                ),
+                                title: Text(q['title'] ?? 'Quiz', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                                subtitle: Text('${q['total_questions']} Questions • ${q['subject']}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (best != null)
+                                      Container(
+                                        margin: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: const Color(0xFF008A3F).withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                        child: Text('$best%', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981), fontSize: 12)),
+                                      ),
+                                    ElevatedButton(
+                                      onPressed: () => _startQuiz(q['id']),
+                                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF008A3F), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                                      child: const Text('Start', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
           ),
         ],
       ),

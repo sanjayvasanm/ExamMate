@@ -4,7 +4,10 @@ import json
 import time
 import requests
 from typing import Dict, Any, List, Tuple, Optional
+from dotenv import load_dotenv
 from groq import Groq
+
+load_dotenv()
 
 _DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 _FALLBACK_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
@@ -290,7 +293,7 @@ Exam Question:
 
 # ── Google Gemini Engine (Flashcards & Quizzes) ───────────────────────────────
 
-def call_gemini_json(prompt: str, context: str, timeout: int = 15) -> Optional[Dict[str, Any]]:
+def call_gemini_json(prompt: str, context: str, timeout: int = 8) -> Optional[Dict[str, Any]]:
     """
     Calls Google Gemini API (gemini-3.5-flash) using JSON mode.
     Exclusively used for high-yield flashcard & MCQ quiz generation from uploaded study materials.
@@ -310,7 +313,11 @@ def call_gemini_json(prompt: str, context: str, timeout: int = 15) -> Optional[D
         ],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "temperature": 0.2
+            "temperature": 0.2,
+            "maxOutputTokens": 3000,
+            "thinkingConfig": {
+                "thinkingBudget": 0
+            }
         }
     }
     try:
@@ -334,7 +341,7 @@ def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5
     Generates revision flashcards grounded in source passages with page attribution.
     Powered primarily by Google Gemini (gemini-3.5-flash), with fallback to Groq and local extraction.
     """
-    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:250]}" for c in chunks[:5]])
     system_prompt = f"""Generate {count} high-yield study flashcards from the study material context below.
 Each flashcard must have a concise, challenging prompt on the 'front', a clear factual explanation on the 'back', and the cited page number.
 Return JSON:
@@ -364,7 +371,7 @@ Return JSON:
                             {"role": "user", "content": context_text}
                         ],
                         temperature=0.2,
-                        max_tokens=1000,
+                        max_tokens=600,
                         response_format={"type": "json_object"}
                     )
                     data = json.loads(resp.choices[0].message.content)
@@ -427,7 +434,7 @@ def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> L
     Generates multiple-choice quiz questions strictly grounded in source passages.
     Powered primarily by Google Gemini (gemini-3.5-flash), with fallback to Groq and local extraction.
     """
-    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:250]}" for c in chunks[:5]])
     system_prompt = f"""Generate {count} multiple-choice exam questions strictly based on the provided material.
 Requirements for each question:
 - 4 plausible options
@@ -470,7 +477,7 @@ Return JSON:
                             {"role": "user", "content": context_text}
                         ],
                         temperature=0.2,
-                        max_tokens=1500,
+                        max_tokens=900,
                         response_format={"type": "json_object"}
                     )
                     data = json.loads(resp.choices[0].message.content)

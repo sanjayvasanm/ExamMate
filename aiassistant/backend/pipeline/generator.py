@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import requests
 from typing import Dict, Any, List, Tuple, Optional
 from groq import Groq
 
@@ -283,15 +284,54 @@ Exam Question:
     # Fallback to local grounded synthesis if Groq errors
     return _synthesize_grounded_exam_answer_local(question, retrieval_result, mode, marks)
 
+# ── Google Gemini Engine (Flashcards & Quizzes) ───────────────────────────────
+
+def call_gemini_json(prompt: str, context: str, timeout: int = 15) -> Optional[Dict[str, Any]]:
+    """
+    Calls Google Gemini API (gemini-3.5-flash) using JSON mode.
+    Exclusively used for high-yield flashcard & MCQ quiz generation from uploaded study materials.
+    """
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key or len(key.strip()) < 10:
+        return None
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={key.strip()}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"{prompt}\n\nStudy Material Context:\n{context}"}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.2
+        }
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=timeout)
+        if r.status_code == 200:
+            res_data = r.json()
+            candidates = res_data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts and "text" in parts[0]:
+                    return json.loads(parts[0]["text"])
+    except Exception as e:
+        print(f"Gemini API request failed: {e}")
+        return None
+    return None
+
 # ── Flashcard Generator ───────────────────────────────────────────────────────
 
 def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
-    """Generates revision flashcards grounded in source passages with page attribution."""
-    client = get_groq_client()
-    if client:
-        try:
-            context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
-            system_prompt = f"""Generate {count} high-yield study flashcards from the study material context below.
+    """
+    Generates revision flashcards grounded in source passages with page attribution.
+    Powered primarily by Google Gemini (gemini-3.5-flash), with fallback to Groq and local extraction.
+    """
+    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+    system_prompt = f"""Generate {count} high-yield study flashcards from the study material context below.
 Each flashcard must have a concise, challenging prompt on the 'front', a clear factual explanation on the 'back', and the cited page number.
 Return JSON:
 {{
@@ -299,6 +339,18 @@ Return JSON:
     {{"front": "What is ...?", "back": "...", "source_page": 1, "source_snippet": "..."}}
   ]
 }}"""
+
+    # 1. Primary Engine: Google Gemini API (as requested by user)
+    gemini_data = call_gemini_json(system_prompt, context_text)
+    if gemini_data:
+        cards = gemini_data.get("flashcards", [])
+        if cards and len(cards) > 0:
+            return cards[:count]
+
+    # 2. Secondary Engine: Groq LLM
+    client = get_groq_client()
+    if client:
+        try:
             for model_name in [_DEFAULT_GROQ_MODEL] + _FALLBACK_MODELS:
                 try:
                     resp = client.chat.completions.create(
@@ -369,13 +421,10 @@ Return JSON:
 def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
     """
     Generates multiple-choice quiz questions strictly grounded in source passages.
-    Uses Groq LLM for realistic distractors and accurate citations, with local fallback.
+    Powered primarily by Google Gemini (gemini-3.5-flash), with fallback to Groq and local extraction.
     """
-    client = get_groq_client()
-    if client:
-        try:
-            context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
-            system_prompt = f"""Generate {count} multiple-choice exam questions strictly based on the provided material.
+    context_text = "\n\n".join([f"[Page {c.get('page_number', 1)}] {c.get('chunk_text', '')[:400]}" for c in chunks[:10]])
+    system_prompt = f"""Generate {count} multiple-choice exam questions strictly based on the provided material.
 Requirements for each question:
 - 4 plausible options
 - Exactly one correct option
@@ -396,6 +445,18 @@ Return JSON:
     }}
   ]
 }}"""
+
+    # 1. Primary Engine: Google Gemini API (as requested by user)
+    gemini_data = call_gemini_json(system_prompt, context_text)
+    if gemini_data:
+        qs = gemini_data.get("questions", [])
+        if qs and len(qs) > 0:
+            return qs[:count]
+
+    # 2. Secondary Engine: Groq LLM
+    client = get_groq_client()
+    if client:
+        try:
             for model_name in [_DEFAULT_GROQ_MODEL] + _FALLBACK_MODELS:
                 try:
                     resp = client.chat.completions.create(

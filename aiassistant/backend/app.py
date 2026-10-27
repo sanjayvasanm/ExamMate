@@ -1,12 +1,13 @@
 import os
+import sys
 import time
 import json
-import datetime
 import uuid
+import datetime
 from functools import wraps
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 from flask import Flask, request, jsonify
@@ -14,93 +15,36 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from supabase import create_client, Client
-from postgrest.exceptions import APIError
 
-# ── Pipeline imports ──────────────────────────────────────────────────────────
-from pipeline.extractor import extract_text_hybrid, chunk_content
-from pipeline.retriever import retriever_instance, get_context
-from pipeline.generator import generate_exam_answer, detect_keywords, fix_mermaid_diagram
+# ── Local imports ─────────────────────────────────────────────────────────────
+from db import DatabaseManager
+from pipeline.extractor import process_document, prepare_chunks_for_storage
+from pipeline.retriever import PrecisionRetriever
+from pipeline.generator import (
+    generate_exam_answer,
+    generate_flashcards_from_chunks,
+    generate_quiz_from_chunks,
+    detect_keywords,
+    get_groq_client
+)
 
-# ── Debug Logging ─────────────────────────────────────────────────────────────
-print(f"[DEBUG] Current Working Directory: {os.getcwd()}")
-print(f"[DEBUG] Files in CWD: {os.listdir('.')}")
-
-# ── App config ────────────────────────────────────────────────────────────────
+# ── App configuration ─────────────────────────────────────────────────────────
 app = Flask(__name__)
-
-# Allow all origins in development to facilitate mobile APK connectivity
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
-SECRET_KEY = os.environ.get("JWT_SECRET")
-if not SECRET_KEY:
-    # Print clearly to stderr for cloud deployment logs
-    import sys
-    print("FATAL: JWT_SECRET environment variable is required for deployment.", file=sys.stderr)
-    print("Please set JWT_SECRET in your Render/Cloud environment variables.", file=sys.stderr)
-    sys.exit(1)
+SECRET_KEY = os.environ.get("JWT_SECRET", "exam_mate_academic_secret_key_2026")
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
-ALLOWED_EXTENSIONS = {"pdf", "pptx", "ppt", "docx", "txt", "png", "jpg", "jpeg"}
+ALLOWED_EXTENSIONS = {"pdf", "pptx", "ppt", "docx", "txt", "md"}
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ── Supabase ──────────────────────────────────────────────────────────────────
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# ── Auth & Helper Middleware ──────────────────────────────────────────────────
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    import sys
-    print("FATAL: SUPABASE_URL and SUPABASE_KEY environment variables are required.", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    # Simple ping to verify connection
-    supabase.table("users").select("id").limit(1).execute()
-    print(f"[Supabase] Connected and verified: {SUPABASE_URL}")
-except APIError as e:
-    print(f"[Supabase] Connection error (APIError): {e}")
-    if "521" in str(e):
-        print("CRITICAL: Supabase project seems to be PAUSED or DOWN (521). Please check the Supabase dashboard.")
-except Exception as exc:
-    print(f"[Supabase] Connection failed: {exc}")
-
-
-# ── Global Error Handlers ─────────────────────────────────────────────────────
-@app.errorhandler(APIError)
-def handle_supabase_error(e):
-    """
-    Handle Supabase/PostgREST API errors globally.
-    Specifically detects 521 (Project Down/Paused) and returns a friendly message.
-    """
-    import traceback
-    traceback.print_exc()
-    
-    error_msg = str(e)
-    # 521 is the code for "Web server is down" from Cloudflare/Supabase
-    if "521" in error_msg or "JSON could not be generated" in error_msg:
-        return jsonify({
-            "status": "error",
-            "error": "Database Service Unavailable",
-            "message": "The database project is currently paused or down. Please go to the Supabase Dashboard and 'Restore' your project.",
-            "hint": "Check if your Supabase project is active and not paused due to inactivity."
-        }), 503
-    
-    return jsonify({
-        "status": "error",
-        "error": "Database Error",
-        "message": "An error occurred while communicating with the database.",
-        "details": error_msg
-    }), 500
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def make_token(user_id: str, email: str) -> str:
     payload = {
@@ -111,7 +55,6 @@ def make_token(user_id: str, email: str) -> str:
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
-
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -121,76 +64,17 @@ def token_required(f):
         token = auth_header.split(" ", 1)[1]
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            request.user_id = payload["sub"]
+            request.user_email = payload["email"]
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token"}), 401
-        request.user_id = payload["sub"]
-        request.user_email = payload["email"]
         return f(*args, **kwargs)
     return decorated
 
+# ── 1. Authentication Endpoints ───────────────────────────────────────────────
 
-def update_user_streak(user_id):
-    """
-    Increments or resets user study streak based on last activity.
-    Logic:
-    - Today already active: No change to streak count, but update last_active
-    - Last active yesterday: Streak + 1
-    - Last active before yesterday: Streak = 1
-    """
-    try:
-        res = supabase.table("users").select("study_streak", "last_active").eq("id", user_id).execute()
-        if not res.data:
-            return
-        
-        user = res.data[0]
-        streak = user.get("study_streak", 0)
-        last_active_str = user.get("last_active")
-        
-        now = datetime.datetime.utcnow()
-        today = now.date()
-        
-        if not last_active_str:
-            new_streak = 1
-        else:
-            # Parse ISO timestamp from Supabase
-            try:
-                # Handle both 'Z' and offset formats
-                ts = last_active_str.replace("Z", "+00:00")
-                last_active = datetime.datetime.fromisoformat(ts)
-                # Ensure it's UTC-comparable
-                if last_active.tzinfo:
-                    last_active = last_active.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-            except Exception:
-                last_active = now - datetime.timedelta(days=2) # Default to break streak
-                
-            last_active_date = last_active.date()
-            diff = (today - last_active_date).days
-            
-            if diff <= 0:
-                new_streak = max(streak, 1) # Already active today (or future clock skew)
-            elif diff == 1:
-                new_streak = streak + 1 # Consecutive day
-            else:
-                new_streak = 1 # Streak broken
-                
-        supabase.table("users").update({
-            "study_streak": new_streak,
-            "last_active": now.isoformat()
-        }).eq("id", user_id).execute()
-        print(f"[Streak] Updated for {user_id}: {streak} -> {new_streak}")
-        
-    except Exception as e:
-        print(f"[Streak Warning] Failed to update streak for {user_id}: {e}")
-
-
-def serialize_doc(doc: dict) -> dict:
-    """Supabase returns JSON-serializable data by default."""
-    return doc
-
-
-# ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
@@ -199,41 +83,24 @@ def register():
     password = data.get("password") or ""
 
     if not name or not email or not password:
-        return jsonify({"error": "name, email and password are required"}), 400
+        return jsonify({"error": "Name, email, and password are required"}), 400
     if len(password) < 6:
         return jsonify({"error": "Password must be at least 6 characters"}), 400
 
-    # Check if exists
-    existing = supabase.table("users").select("id").eq("email", email).execute()
-    if existing.data:
-        return jsonify({"error": "Email already registered"}), 409
+    existing = DatabaseManager.get_user_by_email(email)
+    if existing:
+        return jsonify({"error": "Email is already registered"}), 409
 
-    user_doc = {
-        "name": name,
-        "email": email,
-        "password": generate_password_hash(password),
-        "created_at": datetime.datetime.utcnow().isoformat(),
-        "study_streak": 0,
-        "total_questions": 0,
-        "documents_uploaded": 0,
-        "last_active": datetime.datetime.utcnow().isoformat(),
-    }
-    result = supabase.table("users").insert(user_doc).execute()
-    if not result.data:
-        # Check if error exists in response if the SDK version returns it
-        err = getattr(result, 'error', None)
-        print(f"[Supabase Error] Registration failed: {err}")
-        return jsonify({"error": "Account creation failed. Please try again."}), 500
-        
-    user_id = result.data[0]["id"]
-    token = make_token(str(user_id), email)
+    user = DatabaseManager.create_user(name, email, password)
+    if not user:
+        return jsonify({"error": "Failed to create user account"}), 500
 
+    token = make_token(user["id"], email)
     return jsonify({
         "message": "Account created successfully",
         "token": token,
-        "user": {"id": str(user_id), "name": name, "email": email},
+        "user": user
     }), 201
-
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
@@ -244,368 +111,485 @@ def login():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    user_res = supabase.table("users").select("*").eq("email", email).execute()
-    user = user_res.data[0] if user_res.data else None
-    
-    if not user or not check_password_hash(user["password"], password):
+    user = DatabaseManager.get_user_by_email(email)
+    if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    user_id = str(user["id"])
-    token = make_token(user_id, email)
-
-    # Update last_active and streak
-    update_user_streak(user_id)
+    token = make_token(user["id"], email)
+    DatabaseManager.update_streak(user["id"])
 
     return jsonify({
         "message": "Login successful",
         "token": token,
-        "user": {"id": user_id, "name": user.get("name", ""), "email": email},
+        "user": {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "study_streak": user.get("study_streak", 1)
+        }
     })
 
+# ── 2. Profile & Dashboard ────────────────────────────────────────────────────
 
-# ── Profile ───────────────────────────────────────────────────────────────────
 @app.route("/api/profile", methods=["GET"])
 @token_required
 def get_profile():
-    user_res = supabase.table("users").select("*").eq("id", request.user_id).execute()
-    user = user_res.data[0] if user_res.data else None
+    user = DatabaseManager.get_user_by_id(request.user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    q_res = supabase.table("questions").select("id", count="exact").eq("user_id", request.user_id).execute()
-    q_count = q_res.count if q_res.count is not None else 0
-    
-    d_res = supabase.table("documents").select("id", count="exact").eq("user_id", request.user_id).execute()
-    d_count = d_res.count if d_res.count is not None else 0
-
+    analytics = DatabaseManager.get_analytics(request.user_id)
     return jsonify({
-        "id": str(user["id"]),
-        "name": user.get("name", ""),
-        "email": user.get("email", ""),
-        "study_streak": user.get("study_streak", 0),
-        "total_questions": q_count,
-        "documents_uploaded": d_count,
-        "avg_score": user.get("avg_score", 0),
-        "created_at": user.get("created_at"),
+        "id": user["id"],
+        "name": user["name"],
+        "email": user["email"],
+        "university": user.get("university", "Academic Institution"),
+        "study_streak": analytics["study_streak"],
+        "total_documents": analytics["total_documents"],
+        "total_questions": analytics["total_questions"],
+        "total_focus_hours": analytics["total_focus_hours"],
+        "average_quiz_score": analytics["average_quiz_score"],
+        "created_at": user.get("created_at")
     })
 
-
-@app.route("/api/profile/update", methods=["PUT"])
+@app.route("/api/dashboard", methods=["GET"])
 @token_required
-def update_profile():
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "Name is required"}), 400
-    supabase.table("users").update({"name": name}).eq("id", request.user_id).execute()
-    return jsonify({"message": "Profile updated"})
+def get_dashboard():
+    user = DatabaseManager.get_user_by_id(request.user_id)
+    analytics = DatabaseManager.get_analytics(request.user_id)
+    recent_docs = DatabaseManager.get_documents_by_user(request.user_id)[:4]
+    recent_q = DatabaseManager.get_questions_by_user(request.user_id)[:4]
+    upcoming_exams = DatabaseManager.get_exams(request.user_id)[:3]
+    pending_tasks = [t for t in DatabaseManager.get_tasks(request.user_id) if not t.get("is_completed")][:5]
 
+    return jsonify({
+        "user_name": user["name"] if user else "Student",
+        "study_streak": analytics["study_streak"],
+        "analytics": analytics,
+        "recent_documents": recent_docs,
+        "recent_questions": recent_q,
+        "upcoming_exams": upcoming_exams,
+        "pending_tasks": pending_tasks
+    })
 
-# ── Upload ────────────────────────────────────────────────────────────────────
+# ── 3. Precision Document Upload & Extraction ─────────────────────────────────
+
 @app.route("/api/upload", methods=["POST"])
 @token_required
 def upload_file():
     if "file" not in request.files:
-        return jsonify({"error": "No file part in request"}), 400
+        return jsonify({"error": "No file uploaded in multipart request"}), 400
 
     file = request.files["file"]
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
     if not allowed_file(file.filename):
-        return jsonify({"error": f"File type not allowed. Supported: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
+        return jsonify({"error": f"File type not supported. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
 
-    filename = secure_filename(file.filename)
-    # Prefix with user + timestamp to avoid collisions
-    unique_name = f"{request.user_id}_{int(time.time())}_{filename}"
-    filepath = os.path.join(UPLOAD_FOLDER, unique_name)
+    safe_name = secure_filename(file.filename)
+    unique_name = f"{request.user_id[:8]}_{int(time.time())}_{safe_name}"
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
     file.save(filepath)
 
-    chunks_processed = 0
     doc_id = str(uuid.uuid4())
+    file_size = os.path.getsize(filepath)
 
-    # Process AI pipeline for all supported document types
-    ext = filename.rsplit(".", 1)[1].lower()
-    if ext in ALLOWED_EXTENSIONS:
-        try:
-            print(f"[Pipeline] Processing {filename} ({ext})...")
-            text_blocks = extract_text_hybrid(filepath)
-            chunks = chunk_content(text_blocks)
-            
-            if chunks:
-                retriever_instance.ingest(chunks)
-                chunks_processed = len(chunks)
-                print(f"[Pipeline] Successfully ingested {chunks_processed} chunks from {filename}")
-            else:
-                print(f"[Pipeline] Warning: No text extracted from {filename}")
-        except Exception as exc:
-            print(f"[Pipeline] Error processing {filename}: {exc}")
-
-    # Persist document metadata to Supabase
-    doc_record = {
-        "id": doc_id,
-        "user_id": request.user_id,
-        "filename": filename,
-        "stored_path": filepath,
-        "file_type": ext.upper(),
-        "file_size_mb": round(os.path.getsize(filepath) / (1024 * 1024), 2),
-        "chunks_processed": chunks_processed,
-        "uploaded_at": datetime.datetime.utcnow().isoformat(),
-        "status": "processed" if chunks_processed > 0 else "uploaded",
-    }
-    supabase.table("documents").insert(doc_record).execute()
-
-    # Increment user's document count atomically via Supabase RPC
-    # NOTE: You must create this function in Supabase SQL Editor (see summary)
     try:
-        supabase.rpc("increment_documents_uploaded", {"row_id": request.user_id}).execute()
+        # Run precision extraction pipeline
+        ext_result = process_document(filepath)
+        chunks = prepare_chunks_for_storage(doc_id, request.user_id, ext_result["blocks"])
+
+        # Create quick summary from first blocks
+        first_few = " ".join([b["chunk_text"] for b in ext_result["blocks"][:2]])
+        summary = first_few[:250] + "..." if len(first_few) > 250 else first_few
+
+        # Save document metadata
+        doc_record = {
+            "id": doc_id,
+            "user_id": request.user_id,
+            "filename": safe_name,
+            "stored_path": filepath,
+            "file_type": ext_result["file_type"],
+            "file_size_bytes": file_size,
+            "page_count": ext_result["page_count"],
+            "processed_pages": ext_result["processed_pages"],
+            "ocr_used": ext_result["ocr_used"],
+            "extraction_method": ext_result["extraction_method"],
+            "confidence_score": ext_result["confidence_score"],
+            "warnings": ext_result["warnings"],
+            "summary": summary,
+            "status": "completed" if ext_result["confidence_score"] >= 20.0 else "warning"
+        }
+        DatabaseManager.save_document(doc_record)
+        DatabaseManager.save_document_chunks(chunks)
+
+        return jsonify({
+            "message": "Document uploaded and extracted successfully",
+            "document": doc_record,
+            "chunks_count": len(chunks)
+        }), 201
+
     except Exception as e:
-        print(f"[Supabase Warning] Atomic increment failed (ensure RPC exists): {e}")
-
-    return jsonify({
-        "message": "File uploaded and processed successfully",
-        "document_id": doc_id,
-        "filename": filename,
-        "chunks_processed": chunks_processed,
-        "status": doc_record["status"],
-    })
-
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Extraction failed: {str(e)}"
+        }), 500
 
 @app.route("/api/documents", methods=["GET"])
 @token_required
-def get_documents():
-    res = supabase.table("documents").select("*").eq("user_id", request.user_id).order("uploaded_at", desc=True).limit(20).execute()
-    docs = res.data or []
-    # Remove sensitive path and ensure JSON serializable
-    for d in docs:
-        d.pop("stored_path", None)
-        d["doc_id"] = d.get("id")
-        # SUPABASE returns ISO strings, no need to call .isoformat() manually
-
+def list_documents():
+    docs = DatabaseManager.get_documents_by_user(request.user_id)
     return jsonify({"documents": docs})
 
+@app.route("/api/documents/<doc_id>", methods=["GET"])
+@token_required
+def get_document(doc_id):
+    doc = DatabaseManager.get_document_by_id(doc_id, request.user_id)
+    if not doc:
+        return jsonify({"error": "Document not found"}), 404
+    chunks = DatabaseManager.get_document_chunks(doc_id, request.user_id)
+    doc["chunks"] = chunks
+    return jsonify(doc)
 
-# ── Ask / Q&A ──────────────────────────────────────────────────────────────────
+@app.route("/api/documents/<doc_id>", methods=["DELETE"])
+@token_required
+def delete_document(doc_id):
+    success = DatabaseManager.delete_document(doc_id, request.user_id)
+    if not success:
+        return jsonify({"error": "Document not found or permission denied"}), 404
+    return jsonify({"message": "Document and all associated chunks deleted successfully"})
+
+# ── 4. Grounded AI Tutor & Exam Answers ───────────────────────────────────────
+
 @app.route("/api/ask", methods=["POST"])
 @token_required
-def ask_question():
-    try:
-        data = request.get_json(silent=True) or {}
-        question = (data.get("question") or "").strip()
-        mode = data.get("mode", "detailed")
-        doc_id = data.get("document_id")
-        if doc_id:
-            try:
-                uuid.UUID(str(doc_id))
-            except ValueError:
-                print(f"[API Warning] Invalid document_id '{doc_id}', treating as None.")
-                doc_id = None
-        
-        marks = data.get("marks", 5)
+def ask_ai():
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    doc_id = data.get("document_id")
+    mode = data.get("mode", "detailed")
+    marks = int(data.get("marks", 5))
 
-        if not question:
-            return jsonify({"error": "Question is required"}), 400
+    if not question:
+        return jsonify({"error": "Question is required"}), 400
 
-        print(f"[API] Asking: {question} (Marks: {marks}, Mode: {mode})")
-        context = get_context(question, doc_id)
-        answer, diagrams = generate_exam_answer(question, context, mode, marks)
-        
-        all_text = answer.get("explanation", "") + " ".join(answer.get("points", []))
-        keywords = detect_keywords(all_text)
+    # Retrieve grounded context with evidence sufficiency check
+    retrieval = PrecisionRetriever.retrieve(query=question, user_id=request.user_id, document_id=doc_id)
+    
+    # Generate structured, verifiable answer
+    result = generate_exam_answer(question, retrieval, mode=mode, marks=marks)
+    keywords = detect_keywords(result["answer_text"])
 
-        # Persist question to Supabase
-        q_record = {
-            "user_id": request.user_id,
-            "document_id": doc_id,
-            "question": question,
-            "mode": mode,
-            "marks": marks,
-            "answer": answer,
-            "diagrams": diagrams,
-            "keywords": keywords,
-            "asked_at": datetime.datetime.utcnow().isoformat(),
-            "subject": data.get("subject", "General"),
-        }
-        res = supabase.table("questions").insert(q_record).execute()
+    # Persist in question history
+    q_data = {
+        "user_id": request.user_id,
+        "document_id": doc_id,
+        "question": question,
+        "mode": mode,
+        "marks": marks,
+        "answer_text": result["answer_text"],
+        "structured_answer": result["structured_answer"],
+        "citations": result["citations"],
+        "is_grounded": result["is_grounded"],
+        "confidence": result["confidence"]
+    }
+    q_id = DatabaseManager.save_question(q_data)
+    DatabaseManager.update_streak(request.user_id)
 
-        # Increment user question counter and streak
-        try:
-            supabase.rpc("increment_total_questions", {"row_id": request.user_id}).execute()
-            update_user_streak(request.user_id)
-        except Exception as e:
-            print(f"[Supabase Warning] Post-ask updates failed: {e}")
-
-        return jsonify({
-            "status": "success",
-            "question_id": str(res.data[0]["id"]) if res.data else "unknown",
-            "question": question,
-            "answer": answer,
-            "diagrams": diagrams,
-            "keywords": keywords
-        })
-    except Exception as e:
-        import traceback
-        error_msg = str(e)
-        print(f"[API Error] Exception in /api/ask: {error_msg}")
-        traceback.print_exc()
-        return jsonify({
-            "status": "error",
-            "error": "Internal AI Processing Error. Please check backend logs or try again."
-        }), 500
-
-
-
-
-# ── Mermaid Self-Correction ────────────────────────────────────────────────────
-@app.route("/api/fix-diagram", methods=["POST"])
-@token_required
-def fix_diagram():
-    """
-    Accepts a broken Mermaid code + parse error and returns AI-corrected Mermaid syntax.
-    The frontend calls this in an auto-retry loop (max 3 attempts).
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-        broken_code = (data.get("code") or "").strip()
-        error_message = (data.get("error") or "Syntax error").strip()
-        diagram_type = (data.get("diagram_type") or "graph").strip()
-
-        if not broken_code:
-            return jsonify({"error": "code is required"}), 400
-
-        fixed_code = fix_mermaid_diagram(broken_code, error_message, diagram_type)
-        return jsonify({
-            "status": "fixed",
-            "code": fixed_code,
-            "diagram_type": diagram_type,
-        })
-    except Exception as exc:
-        import traceback as tb
-        print(f"[API Error] /api/fix-diagram: {exc}")
-        tb.print_exc()
-        return jsonify({"error": "Failed to fix diagram", "detail": str(exc)}), 500
-
-
-# ── History ───────────────────────────────────────────────────────────────────
+    return jsonify({
+        "id": q_id,
+        "question": question,
+        "answer_text": result["answer_text"],
+        "structured_answer": result["structured_answer"],
+        "citations": result["citations"],
+        "is_grounded": result["is_grounded"],
+        "confidence": result["confidence"],
+        "keywords": keywords
+    })
 
 @app.route("/api/history", methods=["GET"])
 @token_required
 def get_history():
-    search = request.args.get("q", "").strip()
-    query = supabase.table("questions").select("*").eq("user_id", request.user_id)
-    if search:
-        query = query.ilike("question", f"%{search}%")
+    q_filter = request.args.get("q", "").strip()
+    history = DatabaseManager.get_questions_by_user(request.user_id, q_filter)
+    return jsonify({"history": history})
 
-    res = query.order("asked_at", desc=True).limit(50).execute()
-    items = res.data or []
-    results = []
-    for item in items:
-        asked_at = item.get("asked_at")
-        # Parse ISO string back to datetime object
-        if isinstance(asked_at, str):
-            try:
-                asked_at = datetime.datetime.fromisoformat(asked_at.replace("Z", "+00:00"))
-            except ValueError:
-                asked_at = datetime.datetime.now(datetime.timezone.utc)
-        
-        # Ensure asked_at is timezone-aware for comparison
-        if asked_at.tzinfo is None:
-            asked_at = asked_at.replace(tzinfo=datetime.timezone.utc)
-            
-        now = datetime.datetime.now(datetime.timezone.utc)
-        diff = now - asked_at
-        if diff.days == 0:
-            time_label = f"{int(diff.seconds/3600)}h ago" if diff.seconds >= 3600 else "Just now"
-        elif diff.days == 1:
-            time_label = "Yesterday"
-        else:
-            time_label = asked_at.strftime("%d %b %Y")
+# ── 5. Flashcards & Spaced Repetition ─────────────────────────────────────────
 
-        results.append({
-            "id": str(item["id"]),
-            "question": item.get("question", ""),
-            "subject": item.get("subject", "General"),
-            "mode": item.get("mode", "detailed"),
-            "marks": item.get("marks", 5),
-            "time_label": time_label,
-            "asked_at": item.get("asked_at"),
-        })
-
-    return jsonify({"history": results})
-
-
-@app.route("/api/history/<question_id>", methods=["GET"])
+@app.route("/api/flashcards/decks", methods=["GET"])
 @token_required
-def get_question_detail(question_id):
-    try:
-        res = supabase.table("questions").select("*").eq("id", question_id).eq("user_id", request.user_id).execute()
-        item = res.data[0] if res.data else None
-    except Exception:
-        return jsonify({"error": "Invalid question ID"}), 400
+def get_decks():
+    decks = DatabaseManager.get_decks(request.user_id)
+    return jsonify({"decks": decks})
 
-    if not item:
-        return jsonify({"error": "Question not found"}), 404
-
-    item["id"] = str(item["id"])
-    return jsonify(item)
-
-
-@app.route("/api/history/<question_id>", methods=["DELETE"])
+@app.route("/api/flashcards/decks", methods=["POST"])
 @token_required
-def delete_question(question_id):
-    try:
-        result = supabase.table("questions").delete().eq("id", question_id).eq("user_id", request.user_id).execute()
-    except Exception:
-        return jsonify({"error": "Invalid question ID"}), 400
+def create_deck():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    desc = data.get("description", "")
+    doc_id = data.get("document_id")
 
-    if not result.data:
-        return jsonify({"error": "Question not found or already deleted"}), 404
+    if not title:
+        return jsonify({"error": "Deck title is required"}), 400
 
-    return jsonify({"message": "Deleted successfully"})
+    deck_id = DatabaseManager.create_deck(request.user_id, title, desc, doc_id)
+    return jsonify({"id": deck_id, "title": title, "message": "Deck created successfully"}), 201
 
-
-# ── Dashboard stats ───────────────────────────────────────────────────────────
-@app.route("/api/dashboard", methods=["GET"])
+@app.route("/api/flashcards/decks/<deck_id>/cards", methods=["GET"])
 @token_required
-def get_dashboard():
-    user_res = supabase.table("users").select("*").eq("id", request.user_id).execute()
-    user = user_res.data[0] if user_res.data else None
-    
-    q_res = supabase.table("questions").select("id", count="exact").eq("user_id", request.user_id).execute()
-    q_count = q_res.count if q_res.count is not None else 0
-    
-    d_res = supabase.table("documents").select("id", count="exact").eq("user_id", request.user_id).execute()
-    d_count = d_res.count if d_res.count is not None else 0
+def get_deck_cards(deck_id):
+    cards = DatabaseManager.get_cards_for_deck(deck_id, request.user_id)
+    return jsonify({"cards": cards})
 
-    recent_docs_res = supabase.table("documents").select("*").eq("user_id", request.user_id).order("uploaded_at", desc=True).limit(3).execute()
-    recent_docs = recent_docs_res.data or []
-    for d in recent_docs:
-        d.pop("stored_path", None)
-        d["doc_id"] = d.get("id")
+@app.route("/api/flashcards/generate", methods=["POST"])
+@token_required
+def generate_flashcards():
+    data = request.get_json(silent=True) or {}
+    doc_id = data.get("document_id")
+    deck_title = (data.get("deck_title") or "").strip()
+    count = int(data.get("count", 5))
 
-    recent_questions_res = supabase.table("questions").select("*").eq("user_id", request.user_id).order("asked_at", desc=True).limit(3).execute()
-    recent_questions = recent_questions_res.data or []
-    for q in recent_questions:
-        q["id"] = str(q["id"])
+    if not doc_id:
+        return jsonify({"error": "document_id is required"}), 400
 
+    chunks = DatabaseManager.get_document_chunks(doc_id, request.user_id)
+    if not chunks:
+        return jsonify({"error": "No extracted text found for this document"}), 404
+
+    generated = generate_flashcards_from_chunks(chunks, count=count)
+    if not generated:
+        return jsonify({"error": "Could not extract concepts to form flashcards"}), 400
+
+    # Auto-create deck if requested or use default
+    if not deck_title:
+        doc = DatabaseManager.get_document_by_id(doc_id, request.user_id)
+        deck_title = f"{doc['filename']} Deck" if doc else "Document Flashcards"
+
+    deck_id = DatabaseManager.create_deck(request.user_id, deck_title, f"Generated from document", doc_id)
+    for c in generated:
+        DatabaseManager.add_card(
+            deck_id=deck_id,
+            user_id=request.user_id,
+            front=c["front"],
+            back=c["back"],
+            document_id=doc_id,
+            source_page=c.get("source_page"),
+            source_snippet=c.get("source_snippet")
+        )
+
+    cards = DatabaseManager.get_cards_for_deck(deck_id, request.user_id)
     return jsonify({
-        "user_name": user.get("name", "") if user else "",
-        "total_questions": q_count,
-        "total_documents": d_count,
-        "study_streak": user.get("study_streak", 0) if user else 0,
-        "avg_score": user.get("avg_score", 0) if user else 0,
-        "recent_documents": recent_docs,
-        "recent_questions": recent_questions,
+        "message": f"Generated {len(cards)} cards in deck '{deck_title}'",
+        "deck_id": deck_id,
+        "cards": cards
+    }), 201
+
+@app.route("/api/flashcards/review", methods=["POST"])
+@token_required
+def review_flashcard():
+    data = request.get_json(silent=True) or {}
+    card_id = data.get("card_id")
+    rating = data.get("rating")  # Again, Hard, Good, Easy
+
+    if not card_id or not rating:
+        return jsonify({"error": "card_id and rating are required"}), 400
+
+    res = DatabaseManager.review_card(card_id, request.user_id, rating)
+    if "error" in res:
+        return jsonify(res), 404
+
+    DatabaseManager.update_streak(request.user_id)
+    return jsonify(res)
+
+@app.route("/api/flashcards/decks/<deck_id>", methods=["DELETE"])
+@token_required
+def delete_deck(deck_id):
+    success = DatabaseManager.delete_deck(deck_id, request.user_id)
+    return jsonify({"message": "Deck deleted successfully"})
+
+# ── 6. Quizzes & Self-Assessment ──────────────────────────────────────────────
+
+@app.route("/api/quizzes", methods=["GET"])
+@token_required
+def get_quizzes():
+    quizzes = DatabaseManager.get_quizzes(request.user_id)
+    return jsonify({"quizzes": quizzes})
+
+@app.route("/api/quizzes/<quiz_id>", methods=["GET"])
+@token_required
+def get_quiz_detail(quiz_id):
+    quiz = DatabaseManager.get_quiz_detail(quiz_id, request.user_id)
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+    return jsonify(quiz)
+
+@app.route("/api/quizzes/generate", methods=["POST"])
+@token_required
+def generate_quiz():
+    data = request.get_json(silent=True) or {}
+    doc_id = data.get("document_id")
+    title = (data.get("title") or "").strip()
+    count = int(data.get("count", 5))
+
+    if not doc_id:
+        return jsonify({"error": "document_id is required"}), 400
+
+    chunks = DatabaseManager.get_document_chunks(doc_id, request.user_id)
+    if not chunks:
+        return jsonify({"error": "No extracted text found for this document"}), 404
+
+    doc = DatabaseManager.get_document_by_id(doc_id, request.user_id)
+    if not title:
+        title = f"{doc['filename']} Quiz" if doc else "Exam Prep Quiz"
+
+    questions_list = generate_quiz_from_chunks(chunks, count=count)
+    if not questions_list:
+        return jsonify({"error": "Could not generate questions from document content"}), 400
+
+    quiz_id = DatabaseManager.create_quiz(
+        user_id=request.user_id,
+        title=title,
+        subject=doc.get("file_type", "General") if doc else "General",
+        document_id=doc_id,
+        questions_list=questions_list
+    )
+
+    full_quiz = DatabaseManager.get_quiz_detail(quiz_id, request.user_id)
+    return jsonify({
+        "message": f"Generated quiz with {len(questions_list)} questions",
+        "quiz": full_quiz
+    }), 201
+
+@app.route("/api/quizzes/<quiz_id>/submit", methods=["POST"])
+@token_required
+def submit_quiz(quiz_id):
+    data = request.get_json(silent=True) or {}
+    answers = data.get("answers", [])  # list of int indices
+
+    result = DatabaseManager.submit_quiz_attempt(quiz_id, request.user_id, answers)
+    if "error" in result:
+        return jsonify(result), 404
+
+    DatabaseManager.update_streak(request.user_id)
+    return jsonify(result)
+
+# ── 7. Study Planner, Exams & Tasks ───────────────────────────────────────────
+
+@app.route("/api/exams", methods=["GET"])
+@token_required
+def list_exams():
+    exams = DatabaseManager.get_exams(request.user_id)
+    return jsonify({"exams": exams})
+
+@app.route("/api/exams", methods=["POST"])
+@token_required
+def create_exam():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    subject = (data.get("subject") or "").strip()
+    exam_date = data.get("exam_date")
+    target_score = int(data.get("target_score", 90))
+    syllabus = data.get("syllabus", "")
+
+    if not title or not subject or not exam_date:
+        return jsonify({"error": "Title, subject, and exam_date are required"}), 400
+
+    exam_id = DatabaseManager.create_exam(
+        user_id=request.user_id,
+        title=title,
+        subject=subject,
+        exam_date=exam_date,
+        target_score=target_score,
+        syllabus=syllabus
+    )
+    return jsonify({"id": exam_id, "message": "Exam scheduled successfully"}), 201
+
+@app.route("/api/exams/<exam_id>", methods=["DELETE"])
+@token_required
+def delete_exam(exam_id):
+    DatabaseManager.delete_exam(exam_id, request.user_id)
+    return jsonify({"message": "Exam deleted successfully"})
+
+@app.route("/api/tasks", methods=["GET"])
+@token_required
+def list_tasks():
+    tasks = DatabaseManager.get_tasks(request.user_id)
+    return jsonify({"tasks": tasks})
+
+@app.route("/api/tasks", methods=["POST"])
+@token_required
+def create_task():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    due_date = data.get("due_date")
+    exam_id = data.get("exam_id")
+    priority = data.get("priority", "medium")
+
+    if not title:
+        return jsonify({"error": "Task title is required"}), 400
+
+    task_id = DatabaseManager.create_task(
+        user_id=request.user_id,
+        title=title,
+        due_date=due_date,
+        exam_id=exam_id,
+        priority=priority
+    )
+    return jsonify({"id": task_id, "message": "Task created successfully"}), 201
+
+@app.route("/api/tasks/<task_id>/toggle", methods=["POST"])
+@token_required
+def toggle_task(task_id):
+    success = DatabaseManager.toggle_task(task_id, request.user_id)
+    if not success:
+        return jsonify({"error": "Task not found"}), 404
+    return jsonify({"message": "Task status updated"})
+
+@app.route("/api/tasks/<task_id>", methods=["DELETE"])
+@token_required
+def delete_task(task_id):
+    DatabaseManager.delete_task(task_id, request.user_id)
+    return jsonify({"message": "Task deleted successfully"})
+
+# ── 8. Focus Sessions & Analytics ─────────────────────────────────────────────
+
+@app.route("/api/focus", methods=["POST"])
+@token_required
+def log_focus():
+    data = request.get_json(silent=True) or {}
+    duration = int(data.get("duration_minutes", 25))
+    subject = data.get("subject", "General Study")
+    notes = data.get("notes", "")
+
+    session_id = DatabaseManager.log_focus_session(request.user_id, duration, subject, notes)
+    DatabaseManager.update_streak(request.user_id)
+    return jsonify({"id": session_id, "message": f"Logged {duration} minutes of focus time!"}), 201
+
+@app.route("/api/analytics", methods=["GET"])
+@token_required
+def get_analytics():
+    analytics = DatabaseManager.get_analytics(request.user_id)
+    return jsonify(analytics)
+
+# ── 9. System Health & Diagnostics ────────────────────────────────────────────
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    groq_active = get_groq_client() is not None
+    return jsonify({
+        "status": "healthy",
+        "app": "Exam Mate AI",
+        "version": "2.0.0-precision",
+        "database": "sqlite_relational_active",
+        "ai_engine": "groq_active" if groq_active else "local_grounded_active",
+        "supported_formats": list(ALLOWED_EXTENSIONS)
     })
 
-
-# ── Health check ──────────────────────────────────────────────────────────────
-@app.route("/api/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "db": "supabase"})
-
+# ── Main Entry Point ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Use dynamic port for Render/Cloud deployment
-    port = int(os.environ.get("PORT", 10000))
-    # In production, debug must be False to save memory and for security
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🚀 Exam Mate AI Backend running on http://0.0.0.0:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)

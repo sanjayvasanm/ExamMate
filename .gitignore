@@ -29,3 +29,6 @@ aiassistant/backend/uploads/*
 .kluster/
 .agent/
 query
+*.db
+test.pdf
+powershell.bat

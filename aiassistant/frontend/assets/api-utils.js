@@ -8,7 +8,9 @@ const RENDER_NAME = 'exammate-ai'; // Change this after you create your Render s
 const getApiUrl = () => {
   const override = localStorage.getItem('em_api_override');
   if (override) return override;
-
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://127.0.0.1:5000/api';
+  }
   return 'https://exam-mate-backend-w5t6.onrender.com/api';
 };
 

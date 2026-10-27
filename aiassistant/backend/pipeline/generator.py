@@ -1,359 +1,360 @@
-import json
-import re
 import os
-import traceback
+import re
+import json
 import time
-from urllib.parse import quote_plus
+from typing import Dict, Any, List, Tuple, Optional
 from groq import Groq
 
-# Configuration
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-_DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
-_GROQ_FALLBACK_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b"]
-_configured_groq_model = os.environ.get("GROQ_MODEL", _DEFAULT_GROQ_MODEL)
-GROQ_MODEL = (
-    _DEFAULT_GROQ_MODEL
-    if _configured_groq_model in {
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-    }
-    else _configured_groq_model
-)
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+_DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+_FALLBACK_MODELS = ["llama-3.1-8b-instant", "qwen/qwen3.6-27b"]
 
-# ── Diagram type selection helpers ────────────────────────────────────────────
-
-_DIAGRAM_RULES = [
-    # (keywords_in_query, diagram_type, description)
-    (["flow", "process", "pipeline", "workflow", "steps", "procedure"],
-     "flowchart", "A left-to-right flowchart of the main process"),
-    (["sequence", "protocol", "communication", "message", "request", "response", "handshake"],
-     "sequenceDiagram", "A sequence diagram showing message exchanges"),
-    (["class", "object", "oop", "inheritance", "polymorphism", "uml", "design pattern"],
-     "classDiagram", "A UML class diagram"),
-    (["state", "machine", "transition", "automaton", "finite"],
-     "stateDiagram-v2", "A state machine diagram"),
-    (["er ", "entity", "relation", "database", "table", "schema", "sql"],
-     "erDiagram", "An entity-relationship diagram"),
-    (["timeline", "history", "evolution", "era", "period", "age", "century"],
-     "timeline", "A timeline diagram"),
-    (["gantt", "schedule", "project", "task", "milestone", "deadline"],
-     "gantt", "A Gantt chart"),
-    (["mind", "concept", "map", "brainstorm", "topic", "subtopic"],
-     "mindmap", "A mind-map diagram"),
-    (["pie", "proportion", "percentage", "distribution", "share", "ratio"],
-     "pie", "A pie chart"),
-    (["graph", "network", "topology", "architecture", "layer", "component", "system", "cycle"],
-     "graph", "A graph / architecture diagram"),
-]
-
-_MERMAID_TEMPLATES = {
-    "flowchart": "flowchart LR\n    A[Start] --> B{Decision}\n    B -- Yes --> C[Process A]\n    B -- No --> D[Process B]\n    C --> E[End]\n    D --> E",
-    "sequenceDiagram": "sequenceDiagram\n    participant A\n    participant B\n    A->>B: Request\n    B-->>A: Response",
-    "classDiagram": "classDiagram\n    class Animal {\n        +String name\n        +move()\n    }\n    class Dog {\n        +bark()\n    }\n    Animal <|-- Dog",
-    "stateDiagram-v2": "stateDiagram-v2\n    [*] --> Idle\n    Idle --> Running : start\n    Running --> Idle : stop\n    Running --> [*] : done",
-    "erDiagram": "erDiagram\n    CUSTOMER ||--o{ ORDER : places\n    ORDER ||--|{ LINE-ITEM : contains",
-    "timeline": "timeline\n    title History of Events\n    section Era 1\n        1990 : Event A\n        1995 : Event B\n    section Era 2\n        2000 : Event C",
-    "gantt": "gantt\n    title Project Schedule\n    dateFormat  YYYY-MM-DD\n    section Phase 1\n    Task A :a1, 2024-01-01, 7d\n    Task B :after a1, 5d",
-    "mindmap": "mindmap\n  root((Main Topic))\n    Branch A\n      Sub A1\n      Sub A2\n    Branch B\n      Sub B1",
-    "pie": "pie title Distribution\n    \"Category A\" : 40\n    \"Category B\" : 35\n    \"Category C\" : 25",
-    "graph": "graph TD\n    A[Input] --> B[Processing]\n    B --> C[Output]\n    B --> D[Storage]",
-}
-
-
-def _pick_diagram_type(query: str) -> tuple[str, str]:
-    """Return (diagram_type, description) based on the query keywords."""
-    q = query.lower()
-    for keywords, dtype, desc in _DIAGRAM_RULES:
-        if any(kw in q for kw in keywords):
-            return dtype, desc
-    return "graph", "A structural diagram for the topic"
-
-
-# Simple circuit breaker state
-_groq_cooldown_until = 0
-
-def _groq_completion_with_fallback(messages, response_format=None, temperature=0.2, max_tokens=1500):
-    """
-    Handles Groq API calls with a lightweight circuit breaker.
-    If the primary model is rate-limited, it switches to a fallback model 
-    and enters a cooldown period to avoid sequential retries and latency spikes.
-    """
-    global _groq_cooldown_until
-    if client is None:
-        raise RuntimeError("GROQ_API_KEY not configured")
-
-    # If in cooldown, start with the fallback model
-    current_time = time.time()
-    if current_time < _groq_cooldown_until:
-        models_to_try = [_DEFAULT_GROQ_MODEL, *_GROQ_FALLBACK_MODELS, GROQ_MODEL]
-    else:
-        models_to_try = [GROQ_MODEL, _DEFAULT_GROQ_MODEL, *_GROQ_FALLBACK_MODELS]
-
-    models_to_try = list(dict.fromkeys(models_to_try))
-    
-    for model_name in models_to_try:
+def get_groq_client():
+    key = os.environ.get("GROQ_API_KEY")
+    if key and key.startswith("gsk_") and len(key) > 20:
         try:
-            params = {
-                "model": model_name,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens
-            }
-            if response_format and not model_name.startswith("openai/gpt-oss"):
-                params["response_format"] = response_format
-            
-            return client.chat.completions.create(**params)
-        except Exception as e:
-            err_msg = str(e).lower()
-            if "429" in err_msg or "rate limit" in err_msg or "503" in err_msg:
-                # If the primary model fails, trigger/extend cooldown
-                if model_name == GROQ_MODEL:
-                    print(f"[Groq] Primary model {model_name} rate limited. Entering 30s cooldown.")
-                    _groq_cooldown_until = time.time() + 30
-                continue
-            elif response_format and "json_validate_failed" in err_msg:
-                print(f"[Groq] {model_name} rejected JSON mode. Retrying without response_format.")
-                try:
-                    params.pop("response_format", None)
-                    return client.chat.completions.create(**params)
-                except Exception as retry_error:
-                    retry_msg = str(retry_error).lower()
-                    if "429" in retry_msg or "rate limit" in retry_msg or "503" in retry_msg:
-                        continue
-                    print(f"[Groq Error] {model_name} plain JSON retry: {retry_error}")
-                    continue
-            elif "model_not_found" in err_msg or "does not exist" in err_msg:
-                print(f"[Groq] Model {model_name} is unavailable. Trying the fallback model.")
-                continue
-            else:
-                print(f"[Groq Error] {model_name}: {e}")
+            return Groq(api_key=key)
+        except Exception:
+            return None
+    return None
+
+def detect_keywords(text: str) -> List[str]:
+    """Extracts prominent technical keywords from answer text."""
+    words = re.findall(r'\b[A-Z][a-zA-Z0-9_\-]{2,}\b|\b[a-zA-Z]{5,}\b', text)
+    stop_words = {
+        "should", "because", "between", "through", "during", "before", "without",
+        "following", "example", "another", "standard", "provides", "defined", "system"
+    }
+    filtered = [w for w in words if w.lower() not in stop_words]
+    # Return top 8 unique keywords
+    seen = set()
+    result = []
+    for w in filtered:
+        wl = w.lower()
+        if wl not in seen:
+            seen.add(wl)
+            result.append(w)
+            if len(result) >= 8:
                 break
-                    
-    raise RuntimeError("All Groq models failed or were rate limited.")
+    return result
 
+# ── Local Grounded Academic Synthesizer (Zero-Failure Fallback) ───────────────
 
-def fix_mermaid_diagram(broken_code: str, error_message: str, diagram_type: str) -> str:
+def _synthesize_grounded_exam_answer_local(question: str, retrieval_result: Dict[str, Any], 
+                                          mode: str, marks: int) -> Dict[str, Any]:
     """
-    Uses Groq to self-correct a broken Mermaid diagram.
-    Returns corrected Mermaid code as a plain string.
+    Precision local synthesis from retrieved passages:
+    Directly extracts and structures facts from source chunks without hallucination.
     """
-    if client is None:
-        return _MERMAID_TEMPLATES.get(diagram_type, _MERMAID_TEMPLATES["graph"])
-
-    fix_prompt = f"""You are a Mermaid.js syntax expert. Fix the following broken Mermaid diagram.
-
-DIAGRAM TYPE: {diagram_type}
-ERROR: {error_message}
-
-BROKEN CODE:
-```
-{broken_code}
-```
-
-STRICT RULES:
-1. Output ONLY the corrected Mermaid code — no markdown fences, no explanation, no extra text.
-2. The first line MUST start with the diagram type keyword (e.g. 'graph TD', 'flowchart LR', 'sequenceDiagram', etc.).
-3. Fix ALL syntax errors — missing arrows, wrong keywords, unclosed brackets, illegal characters.
-4. Node labels with spaces MUST use quotes: A["Label with spaces"].
-5. Use only basic ASCII in node IDs (no spaces, no special chars).
-6. Keep the diagrams semantically meaningful.
-7. Output must be valid Mermaid that renders without any errors.
-"""
-
-    try:
-        completion = _groq_completion_with_fallback(
-            messages=[
-                {"role": "system", "content": "You are a Mermaid.js syntax fixer. Output only corrected Mermaid code, never wrap in markdown."},
-                {"role": "user", "content": fix_prompt},
-            ],
-            temperature=0.1,
-            max_tokens=1024,
-        )
-        fixed = completion.choices[0].message.content.strip()
-        # Strip markdown fences if the model wraps them anyway
-        fixed = re.sub(r"^```[a-z]*\n?", "", fixed, flags=re.IGNORECASE).strip()
-        fixed = re.sub(r"\n?```$", "", fixed).strip()
-        return fixed
-    except Exception as exc:
-        print(f"[Mermaid Fix] Groq error: {exc}")
-        return _MERMAID_TEMPLATES.get(diagram_type, _MERMAID_TEMPLATES["graph"])
-
-
-def generate_diagrams(query: str, context: str) -> list[dict]:
-    """
-    Generates one or more AI-powered Mermaid diagrams for the given query.
-    Each diagram dict contains: type, diagram_type, code, title, description.
-    """
-    if client is None:
-        diagram_type, desc = _pick_diagram_type(query)
-        return [{
-            "type": "mermaid",
-            "diagram_type": diagram_type,
-            "title": f"Diagram: {query[:60]}",
-            "description": desc,
-            "code": _MERMAID_TEMPLATES.get(diagram_type, _MERMAID_TEMPLATES["graph"]),
-        }]
-
-    diagram_type, description = _pick_diagram_type(query)
-    template_example = _MERMAID_TEMPLATES.get(diagram_type, _MERMAID_TEMPLATES["graph"])
-
-    prompt = f"""You are a Mermaid.js diagram expert for academic education.
-
-TOPIC: {query}
-CONTEXT (optional): {context[:1500]}
-REQUIRED DIAGRAM TYPE: {diagram_type}
-
-Generate a detailed, educational Mermaid.js diagram for the topic above.
-
-STRICT RULES:
-1. Output ONLY the Mermaid code — no markdown fences (no ```), no explanation.
-2. First line MUST be the diagram keyword: '{diagram_type}' (or 'graph TD' / 'flowchart LR' etc.).
-3. Node labels containing spaces or special characters MUST use double-quotes: A["Label text"].
-4. Node IDs must be plain alphanumeric with underscores only: node_A, step1, etc.
-5. Include at least 6-10 meaningful nodes/steps relevant to the topic.
-6. Must render without syntax errors in Mermaid.js v10+.
-
-EXAMPLE STRUCTURE for {diagram_type}:
-{template_example}
-
-Now generate the diagram for: {query}
-"""
-
-    try:
-        completion = _groq_completion_with_fallback(
-            messages=[
-                {"role": "system", "content": "You are a Mermaid.js diagram generator. Output only valid Mermaid code. Never use markdown code fences."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            max_tokens=1500,
-        )
-        code = completion.choices[0].message.content.strip()
-        # Strip accidental markdown fences
-        code = re.sub(r"^```[a-z]*\n?", "", code, flags=re.IGNORECASE).strip()
-        code = re.sub(r"\n?```$", "", code).strip()
-
-        if not code:
-            raise ValueError("Empty response from Groq")
-
-        return [{
-            "type": "mermaid",
-            "diagram_type": diagram_type,
-            "title": f"{query[:60]}",
-            "description": description,
-            "code": code,
-        }]
-
-    except Exception as exc:
-        print(f"[Mermaid Gen] Error generating diagram: {exc}")
-        return [{
-            "type": "mermaid",
-            "diagram_type": diagram_type,
-            "title": f"Diagram: {query[:60]}",
-            "description": description,
-            "code": _MERMAID_TEMPLATES.get(diagram_type, _MERMAID_TEMPLATES["graph"]),
-        }]
-
-
-def generate_exam_answer(query, context, mode="detailed", marks=5):
-    """
-    Unified Pure-Groq Pipeline for University-Grade Academic Answers.
-    Uses Llama 3.3 70B for massive, structured responses.
-    """
-
-    # Dynamic instruction based on marks
-    marks_int = int(marks)
-    if marks_int <= 2:
-        detail_instruction = "WORD LIMIT: 30-50 words. STRUCTURE: Definition + One Key Point/Example."
-    elif marks_int <= 5:
-        detail_instruction = "WORD LIMIT: 100-150 words. STRUCTURE: Introduction + Main Points (bullets) + Conclusion."
-    elif marks_int <= 10:
-        detail_instruction = "WORD LIMIT: 250-350 words. STRUCTURE: Introduction + Definition + Deep Explanation + Feature Points (5-6) + Example + Conclusion."
-    else:  # 16 marks
-        detail_instruction = "EXHAUSTIVE WORD LIMIT: 800-1200 words. STRUCTURE: Professional Introduction + Historical Background + Detailed Technical Explanation + Technical Diagram Description + Step-by-Step Working Process + Advantages (5-6) + Disadvantages (3-4) + Real-world Applications + Powerful Conclusion."
-
-    prompt = f"""
-    You are an AI University Professor. Provide a highly structured exam answer for: '{query}'.
-    MARKS: {marks}
-    REQUIREMENT: {detail_instruction}
-
-    CONTEXT:
-    {context[:3000]}
-
-    You MUST respond with one complete valid JSON object matching this schema. Use university-level English.
-    Do not output markdown, comments, trailing commas, or the literal '...'.
-    {{
-      "title": "Topic Title",
-      "introduction": "Intro paragraph",
-      "definition": "Formal definition",
-      "explanation": "Detailed theoretical explanation (This must be very long for 16-marks)",
-      "working_process": "Step-by-step how it works",
-        "points": ["Key Point 1", "Key Point 2", "Key Point 3"],
-      "example": "Real-world example",
-        "advantages": ["Advantage 1", "Advantage 2", "Advantage 3"],
-        "disadvantages": ["Disadvantage 1", "Disadvantage 2", "Disadvantage 3"],
-        "applications": ["Application 1", "Application 2", "Application 3"],
-      "conclusion": "Final academic summary",
-      "image_prompt": "A professional whiteboard-style technical diagram or flow-chart description for {query}. Educational clarity, high-contrast, clear labels."
-    }}
-
-    STRICT COMPLIANCE: For high-mark questions (10 and 16 marks), generate massive content for the 'explanation' and 'working_process' fields.
-    """
-
-    try:
-        completion = _groq_completion_with_fallback(
-            messages=[
-                {"role": "system", "content": "You are a JSON-only Academic API. Never use markdown code blocks. Output pure JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
-            max_tokens=4096
-        )
-
-        response_text = completion.choices[0].message.content.strip()
-
-        # Security Cleaning
-        start_idx = response_text.find('{')
-        end_idx = response_text.rfind('}')
-        if start_idx != -1 and end_idx != -1:
-            response_text = response_text[start_idx:end_idx+1]
-
-        structured_response = json.loads(response_text, strict=False)
-
-        # Logic for Visuals (Zero-Config Pollinations Rendering)
-        raw_iprompt = structured_response.get("image_prompt", query)
-
-        visual_style = "professional architectural diagram, whiteboard style, high resolution, sharp text labels, white background, educational schematic"
-        final_iprompt = f"{raw_iprompt}, {visual_style}"
-
-        structured_response["image_url"] = f"https://pollinations.ai/p/{quote_plus(final_iprompt)}?width=1024&height=1024&seed=42&model=flux"
-        structured_response["image_prompt"] = raw_iprompt
-
-    except Exception as e:
-        print(f"Groq Pure Pipeline Error: {e}")
-        traceback.print_exc()
-
-        structured_response = {
-            "title": "Assistant Offline",
-            "introduction": "An error occurred during content generation.",
-            "definition": "The system encountered a configuration issue.",
-            "explanation": f"Detailed Error: {str(e)}. Please check your Groq API key.",
-            "points": ["Verify Internet Connection.", "Check API token status."],
-            "conclusion": "Please retry in a moment."
+    chunks = retrieval_result.get("chunks", [])
+    if not chunks:
+        return {
+            "answer_text": "The supplied material does not contain enough information to answer this question reliably.",
+            "structured_answer": {
+                "definition": "Insufficient information in source material.",
+                "explanation": "No matching text passages were found in your uploaded documents.",
+                "points": [],
+                "examples": [],
+                "conclusion": "Please verify your question or upload relevant study materials."
+            },
+            "citations": [],
+            "is_grounded": False,
+            "confidence": 0.0
         }
 
-    diagrams = generate_diagrams(query, context)
-    return structured_response, diagrams
+    # Extract sentences across retrieved chunks
+    all_sentences = []
+    for c in chunks:
+        p_no = c["page_number"]
+        sec = c["section_title"]
+        s_list = re.split(r'(?<=[.!?])\s+', c["chunk_text"])
+        for s in s_list:
+            clean_s = s.strip()
+            if len(clean_s) > 25:
+                all_sentences.append({"sentence": clean_s, "page": p_no, "section": sec})
 
+    # Pick definition (sentence containing 'is', 'defined as', 'refers to', or first sentence)
+    definition_cand = None
+    for item in all_sentences:
+        lower_s = item["sentence"].lower()
+        if any(term in lower_s for term in [" is ", " defined as ", " refers to ", " represents ", " consists of "]):
+            definition_cand = item["sentence"]
+            break
+    if not definition_cand and all_sentences:
+        definition_cand = all_sentences[0]["sentence"]
 
-def detect_keywords(text):
+    # Pick key points
+    target_points = 2 if marks <= 2 else (4 if marks <= 5 else 6)
+    key_points = []
+    seen_texts = set()
+    if definition_cand:
+        seen_texts.add(definition_cand.lower())
+
+    for item in all_sentences:
+        s_text = item["sentence"]
+        if s_text.lower() not in seen_texts:
+            seen_texts.add(s_text.lower())
+            key_points.append(f"{s_text} (Ref: Page {item['page']})")
+            if len(key_points) >= target_points:
+                break
+
+    # Pick example if available
+    examples = []
+    for item in all_sentences:
+        if any(ex_term in item["sentence"].lower() for ex_term in ["for example", "e.g.", "such as", "case in point"]):
+            examples.append(f"{item['sentence']} (Page {item['page']})")
+            if len(examples) >= 2:
+                break
+
+    conclusion = f"In summary, based on Page {chunks[0]['page_number']} of the study material, understanding these core principles is essential for {marks}-mark academic assessments."
+
+    # Format answer text
+    sections = [
+        f"### 1. Definition / Core Concept\n{definition_cand}",
+        f"\n### 2. Key Explanatory Points\n" + "\n".join([f"{i+1}. {p}" for i, p in enumerate(key_points)])
+    ]
+    if examples:
+        sections.append(f"\n### 3. Source Examples\n" + "\n".join([f"- {ex}" for ex in examples]))
+    sections.append(f"\n### 4. Summary\n{conclusion}")
+
+    full_answer = "\n".join(sections)
+
+    return {
+        "answer_text": full_answer,
+        "structured_answer": {
+            "definition": definition_cand or "",
+            "explanation": " ".join([p.split(" (Ref:")[0] for p in key_points[:2]]),
+            "points": key_points,
+            "examples": examples,
+            "conclusion": conclusion
+        },
+        "citations": retrieval_result.get("citations", []),
+        "is_grounded": True,
+        "confidence": retrieval_result.get("confidence", 0.9)
+    }
+
+# ── Primary Exam Answer Generator ─────────────────────────────────────────────
+
+def generate_exam_answer(question: str, retrieval_result: Dict[str, Any], 
+                         mode: str = "detailed", marks: int = 5) -> Dict[str, Any]:
     """
-    Extracts key academic terms from the text for tagging.
+    Produces a rigorously grounded exam answer.
+    Enforces honest insufficiency responses when evidence is lacking.
     """
-    try:
-        words = re.findall(r'\b[A-Za-z]{6,}\b', text)
-        return list(set(words))[:5]
-    except Exception:
-        return []
+    if not retrieval_result.get("is_sufficient"):
+        return {
+            "answer_text": "The supplied material does not contain enough information to answer this question reliably.",
+            "structured_answer": {
+                "definition": "Insufficient Evidence",
+                "explanation": "The uploaded material does not contain verifiable facts or discussion regarding this topic.",
+                "points": [],
+                "examples": [],
+                "conclusion": "Answers cannot be fabricated without source attribution."
+            },
+            "citations": [],
+            "is_grounded": False,
+            "confidence": 0.0
+        }
+
+    client = get_groq_client()
+    if client is None:
+        # Graceful, high-fidelity local grounded synthesis
+        return _synthesize_grounded_exam_answer_local(question, retrieval_result, mode, marks)
+
+    # Use Groq API with precision-first system prompt
+    context = retrieval_result.get("combined_context", "")
+    citations = retrieval_result.get("citations", [])
+
+    system_prompt = f"""You are Exam Mate AI, an academic exam preparation specialist.
+Answer the user's exam question STRICTLY using the provided source context.
+DO NOT fabricate facts, cite unseen pages, or extrapolate beyond the provided text.
+If the source does not contain enough evidence, state: 'The supplied material does not contain enough information to answer this question reliably.'
+
+Exam requirements:
+- Marks allocated: {marks} marks
+- Target style: {mode} (concise for short marks, structured & comprehensive for 5+ marks)
+- Always include page references matching the source tags (e.g. [Page X, Section Y]).
+
+Output format: Return valid JSON with this exact structure:
+{{
+    "definition": "Clear 1-2 sentence core definition",
+    "explanation": "Thorough academic explanation",
+    "points": ["Numbered key point 1 [Page X]", "Numbered key point 2 [Page Y]"],
+    "examples": ["Example directly present in text [Page Z]"],
+    "conclusion": "Final summarizing sentence"
+}}
+"""
+
+    user_prompt = f"""Context from uploaded study material:
+{context}
+
+Question:
+{question}
+"""
+
+    for model_name in [_DEFAULT_GROQ_MODEL] + _FALLBACK_MODELS:
+        try:
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.15,
+                max_tokens=1200,
+                response_format={"type": "json_object"}
+            )
+            raw_content = resp.choices[0].message.content
+            parsed = json.loads(raw_content)
+
+            # Build readable answer string
+            text_lines = [
+                f"### 1. Definition\n{parsed.get('definition', '')}",
+                f"\n### 2. Explanation\n{parsed.get('explanation', '')}",
+                f"\n### 3. Key Points\n" + "\n".join([f"{i+1}. {pt}" for i, pt in enumerate(parsed.get('points', []))])
+            ]
+            if parsed.get('examples'):
+                text_lines.append(f"\n### 4. Examples\n" + "\n".join([f"- {ex}" for ex in parsed.get('examples', [])]))
+            text_lines.append(f"\n### 5. Conclusion\n{parsed.get('conclusion', '')}")
+
+            return {
+                "answer_text": "\n".join(text_lines),
+                "structured_answer": parsed,
+                "citations": citations,
+                "is_grounded": True,
+                "confidence": retrieval_result.get("confidence", 0.95)
+            }
+        except Exception as e:
+            continue
+
+    # Fallback if API call failed
+    return _synthesize_grounded_exam_answer_local(question, retrieval_result, mode, marks)
+
+# ── Flashcard Generator ───────────────────────────────────────────────────────
+
+def generate_flashcards_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
+    """Generates revision flashcards grounded in source passages with page attribution."""
+    cards = []
+    pattern = re.compile(r'\s+(?:is defined as|refers to|is the|is an|is a|consists of|serves as|enables|checks for)\s+', re.IGNORECASE)
+
+    for c in chunks:
+        p_no = c.get("page_number", 1)
+        text = c.get("chunk_text", "")
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        for s in sentences:
+            s_clean = s.strip()
+            if len(s_clean) > 30:
+                match = pattern.search(s_clean)
+                if match:
+                    subject = s_clean[:match.start()].strip()
+                    definition = s_clean[match.end():].strip()
+                    if 3 < len(subject) < 60 and len(definition) > 10:
+                        front = f"What is {subject}?"
+                        back = f"{subject} {s_clean[match.start():].strip()}"
+                        cards.append({
+                            "front": front,
+                            "back": back,
+                            "source_page": p_no,
+                            "source_snippet": s_clean[:180]
+                        })
+                        if len(cards) >= count:
+                            return cards
+
+    # Fallback to key sentences
+    for c in chunks:
+        if len(cards) >= count:
+            break
+        p_no = c.get("page_number", 1)
+        sec = c.get("section_title", "Concept")
+        text = c.get("chunk_text", "").strip()
+        paragraphs = [p for p in text.split("\n\n") if len(p.strip()) > 30]
+        for p in paragraphs:
+            cards.append({
+                "front": f"Explain key concept from Page {p_no}: {p[:40]}...",
+                "back": p[:250],
+                "source_page": p_no,
+                "source_snippet": p[:180]
+            })
+            if len(cards) >= count:
+                break
+
+    return cards[:count]
+
+# ── Quiz Generator ─────────────────────────────────────────────────────────────
+
+def generate_quiz_from_chunks(chunks: List[Dict[str, Any]], count: int = 5) -> List[Dict[str, Any]]:
+    """
+    Generates multiple-choice quiz questions strictly grounded in source passages.
+    Each item has 4 options, the 0-indexed correct answer, explanation, and cited source page.
+    """
+    questions = []
+    distractor_pool = [
+        "Increases network latency across distributed clusters",
+        "Decreases computational throughput during batch execution",
+        "Prevents persistent storage serialization",
+        "Requires manual intervention on every transaction",
+        "Allocates memory dynamically without bounds checking",
+        "Restricts database reads to single-threaded sequential scans"
+    ]
+
+    for c in chunks:
+        if len(questions) >= count:
+            break
+        p_no = c.get("page_number", 1)
+        text = c.get("chunk_text", "")
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+
+        for s in sentences:
+            s_clean = s.strip()
+            if len(s_clean) > 50 and any(kw in s_clean.lower() for kw in ["is used to", "serves as", "enables", "primary advantage", "defined as", "principle"]):
+                # Create question from this statement
+                q_text = f"According to Page {p_no}, which of the following is correct regarding: {s_clean[:40]}...?"
+                correct_opt = s_clean
+                if len(correct_opt) > 120:
+                    correct_opt = correct_opt[:117] + "..."
+
+                options = [
+                    correct_opt,
+                    distractor_pool[(len(questions) * 2) % len(distractor_pool)],
+                    distractor_pool[(len(questions) * 2 + 1) % len(distractor_pool)],
+                    distractor_pool[(len(questions) * 2 + 2) % len(distractor_pool)]
+                ]
+                # Rotate correct option index so it's not always 0
+                correct_idx = len(questions) % 4
+                options[0], options[correct_idx] = options[correct_idx], options[0]
+
+                questions.append({
+                    "question_text": q_text,
+                    "options": options,
+                    "correct_option_index": correct_idx,
+                    "explanation": f"Source passage on Page {p_no} states: '{s_clean}'",
+                    "source_page": p_no,
+                    "source_snippet": s_clean[:200]
+                })
+                break
+
+    # If needed, fill remaining questions from chunk summaries
+    while len(questions) < min(count, len(chunks)):
+        idx = len(questions)
+        c = chunks[idx % len(chunks)]
+        p_no = c.get("page_number", 1)
+        sec = c.get("section_title", "Topic")
+        snip = c.get("chunk_text", "")[:120]
+        options = [
+            f"It covers the verified principles of {sec}",
+            "It deprecates all prior academic methodologies",
+            "It is restricted solely to theoretical analysis without practical use",
+            "It contradicts modern software development standards"
+        ]
+        correct_idx = idx % 4
+        options[0], options[correct_idx] = options[correct_idx], options[0]
+        questions.append({
+            "question_text": f"What is the main topic covered in Page {p_no} under '{sec}'?",
+            "options": options,
+            "correct_option_index": correct_idx,
+            "explanation": f"Page {p_no} discusses {sec}: '{snip}...'",
+            "source_page": p_no,
+            "source_snippet": snip
+        })
+
+    return questions

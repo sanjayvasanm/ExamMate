@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'services/api_service.dart';
+import 'screens/auth_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/library_screen.dart';
+import 'screens/ai_tutor_screen.dart';
+import 'screens/study_screen.dart';
+import 'screens/planner_screen.dart';
+import 'screens/focus_screen.dart';
+import 'screens/analytics_screen.dart';
+import 'screens/profile_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ExamMateApp());
 }
@@ -13,169 +22,181 @@ class ExamMateApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Exam Mate',
+      title: 'Exam Mate AI',
       theme: ThemeData(
+        brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0D0C22),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF008A3F),
-          brightness: Brightness.dark,
+        primaryColor: const Color(0xFF008A3F),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF008A3F),
+          secondary: Color(0xFF10B981),
+          surface: Color(0xFF16152B),
+          background: Color(0xFF0D0C22),
         ),
+        cardColor: const Color(0xFF16152B),
+        fontFamily: 'Roboto',
       ),
-      home: const ExamMateWebHost(),
+      home: const RootGate(),
     );
   }
 }
 
-class ExamMateWebHost extends StatefulWidget {
-  const ExamMateWebHost({super.key});
+class RootGate extends StatefulWidget {
+  const RootGate({super.key});
 
   @override
-  State<ExamMateWebHost> createState() => _ExamMateWebHostState();
+  State<RootGate> createState() => _RootGateState();
 }
 
-class _ExamMateWebHostState extends State<ExamMateWebHost> {
-  /// Serves the entire `assets/` folder on localhost.
-  /// Navigate to any HTML page under assets/ via the web view.
-  static const List<int> _candidatePorts = [8080, 8081, 8082, 8083];
-  InAppLocalhostServer? _localhostServer;
-  int _serverPort = _candidatePorts.first;
-
-  bool _serverReady = false;
-  bool _serverError = false;
+class _RootGateState extends State<RootGate> {
+  final ApiService _api = ApiService();
+  bool _isAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
-    _startServer();
+    _checkAuth();
   }
 
-  Future<void> _startServer() async {
-    if (mounted) {
-      setState(() {
-        _serverReady = false;
-        _serverError = false;
-      });
-    }
-
-    for (final port in _candidatePorts) {
-      final server = InAppLocalhostServer(port: port, documentRoot: 'assets');
-      try {
-        await server.start();
-        if (!mounted) {
-          await server.close();
-          return;
-        }
-        _localhostServer?.close();
-        _localhostServer = server;
-        _serverPort = port;
-        setState(() => _serverReady = true);
-        return;
-      } catch (e) {
-        debugPrint('Localhost server error on port $port: $e');
-        await server.close();
-      }
-    }
-
-    if (mounted) {
-      setState(() => _serverError = true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _localhostServer?.close();
-    super.dispose();
+  void _checkAuth() {
+    setState(() {
+      _isAuthenticated = _api.token != null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Loading state
-    if (!_serverReady && !_serverError) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0D0C22),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                  color: Color(0xFF008A3F), strokeWidth: 3),
-              SizedBox(height: 20),
-              Text(
-                'Starting Exam Mate…',
-                style: TextStyle(
-                    color: Color(0xFF008A3F), fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
+    if (!_isAuthenticated) {
+      return AuthScreen(
+        onLoginSuccess: () => setState(() => _isAuthenticated = true),
       );
     }
+    return MainShell(
+      onLogout: () => setState(() => _isAuthenticated = false),
+    );
+  }
+}
 
-    // Error state
-    if (_serverError) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF0D0C22),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-              const SizedBox(height: 16),
-              const Text('Failed to start local server',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _serverError = false;
-                  });
-                  _startServer();
-                },
-                child: const Text('Retry',
-                    style: TextStyle(color: Color(0xFF008A3F))),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+class MainShell extends StatefulWidget {
+  final VoidCallback onLogout;
+  const MainShell({super.key, required this.onLogout});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _currentIndex = 0;
+
+  void _navigateToIndex(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      HomeScreen(onNavigate: _navigateToIndex),
+      const LibraryScreen(),
+      const AiTutorScreen(),
+      const StudyScreen(),
+      const PlannerScreen(),
+    ];
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0C22),
-      body: SafeArea(
-        child: InAppWebView(
-          // Always start at the login page.
-          // If the user is already logged in, the login page's JS will redirect
-          // them to the dashboard automatically via localStorage.
-          initialUrlRequest: URLRequest(
-            url: WebUri(
-                'http://localhost:$_serverPort/login_exam_mate/code.html'),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: AppBar(
+          backgroundColor: const Color(0xFF0D0C22),
+          elevation: 0,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF008A3F).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Exam Mate AI',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: -0.3),
+              ),
+            ],
           ),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            domStorageEnabled: true,
-            databaseEnabled: true,
-            transparentBackground: true,
-            useShouldOverrideUrlLoading: false,
-            mediaPlaybackRequiresUserGesture: false,
-            allowFileAccessFromFileURLs: false,
-            allowUniversalAccessFromFileURLs: false,
-            // Keep mixed content blocked; localhost is loaded over HTTP already.
-            mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
-          ),
-          onLoadStart: (controller, url) {
-            debugPrint('[WebView] Loading: $url');
-          },
-          onLoadStop: (controller, url) {
-            debugPrint('[WebView] Loaded: $url');
-          },
-          onConsoleMessage: (controller, msg) {
-            debugPrint('[WebView Console] ${msg.messageLevel}: ${msg.message}');
-          },
-          onReceivedHttpError: (controller, req, resp) {
-            debugPrint('[WebView HTTP Error] ${resp.statusCode} - ${req.url}');
-          },
+          actions: [
+            // Focus session quick action
+            IconButton(
+              icon: const Icon(Icons.timer_outlined, color: Color(0xFF38BDF8), size: 22),
+              tooltip: 'Focus Timer',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusScreen())),
+            ),
+            // Analytics quick action
+            IconButton(
+              icon: const Icon(Icons.bar_chart_rounded, color: Color(0xFFA855F7), size: 22),
+              tooltip: 'Analytics',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen())),
+            ),
+            // Profile quick action
+            IconButton(
+              icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF10B981), size: 22),
+              tooltip: 'Profile & Settings',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(onLogout: widget.onLogout))),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF16152B),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _navigateToIndex,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: const Color(0xFF16152B),
+          selectedItemColor: const Color(0xFF10B981),
+          unselectedItemColor: const Color(0xFF94A3B8),
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.folder_outlined),
+              activeIcon: Icon(Icons.folder),
+              label: 'Library',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.psychology_outlined),
+              activeIcon: Icon(Icons.psychology),
+              label: 'AI Tutor',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.style_outlined),
+              activeIcon: Icon(Icons.style),
+              label: 'Study',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_today_outlined),
+              activeIcon: Icon(Icons.calendar_today),
+              label: 'Planner',
+            ),
+          ],
         ),
       ),
     );

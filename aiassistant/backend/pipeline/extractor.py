@@ -4,6 +4,7 @@ import time
 import tempfile
 import fitz  # PyMuPDF
 import gc
+import uuid
 from typing import List, Dict, Any, Tuple
 
 # ── Text Cleaning Utilities ───────────────────────────────────────────────────
@@ -557,7 +558,7 @@ def prepare_chunks_for_storage(doc_id: str, user_id: str, blocks: List[Dict[str,
 
         if len(words) <= max_tokens:
             chunks.append({
-                "id": f"{doc_id}_c{chunk_index}",
+                "id": str(uuid.uuid4()),
                 "document_id": doc_id,
                 "user_id": user_id,
                 "page_number": page_no,
@@ -574,7 +575,7 @@ def prepare_chunks_for_storage(doc_id: str, user_id: str, blocks: List[Dict[str,
                 end = min(len(words), start + max_tokens)
                 sub_text = " ".join(words[start:end])
                 chunks.append({
-                    "id": f"{doc_id}_c{chunk_index}",
+                    "id": str(uuid.uuid4()),
                     "document_id": doc_id,
                     "user_id": user_id,
                     "page_number": page_no,

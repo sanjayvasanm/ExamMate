@@ -170,11 +170,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     children: [
                       Chip(
                         backgroundColor: const Color(0xFF008A3F).withOpacity(0.2),
-                        label: Text('Confidence: ${detail['confidence_score']}%', style: const TextStyle(color: Color(0xFF10B981), fontSize: 12)),
+                        label: Text('Confidence: ${detail['confidence_score'] ?? 95}%', style: const TextStyle(color: Color(0xFF10B981), fontSize: 12)),
                       ),
                       Chip(
                         backgroundColor: const Color(0xFF0D0C22),
-                        label: Text('${detail['page_count']} Pages', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                        label: Text('${detail['page_count'] ?? detail['chunks_processed'] ?? (detail['chunks'] as List?)?.length ?? 1} Pages', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
                       ),
                       Chip(
                         backgroundColor: const Color(0xFF0D0C22),

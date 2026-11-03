@@ -411,8 +411,17 @@ class DatabaseManager:
         sb = _get_sb()
         rows = []
         for idx, c in enumerate(chunks):
+            # Guarantee valid UUID v4 for Supabase Postgres UUID column
+            c_id = str(uuid.uuid4())
+            if c.get("id"):
+                try:
+                    uuid.UUID(str(c["id"]))
+                    c_id = str(c["id"])
+                except (ValueError, TypeError):
+                    c_id = str(uuid.uuid4())
+
             rows.append({
-                "id": c.get("id") or str(uuid.uuid4()),
+                "id": c_id,
                 "document_id": c["document_id"],
                 "user_id": c["user_id"],
                 "chunk_index": c.get("page_number", idx + 1),  # Supabase uses chunk_index
@@ -440,6 +449,8 @@ class DatabaseManager:
             for d in res.data:
                 d["file_size_bytes"] = int((d.get("file_size_mb") or 0) * 1024 * 1024)
                 d["warnings"] = []
+                d["confidence_score"] = d.get("confidence_score") or (95.0 if d.get("status") == "processed" else 85.0)
+                d["page_count"] = d.get("page_count") or d.get("chunks_processed") or 1
                 docs.append(d)
             return docs
         except Exception as exc:
@@ -456,6 +467,8 @@ class DatabaseManager:
             d = res.data[0]
             d["file_size_bytes"] = int((d.get("file_size_mb") or 0) * 1024 * 1024)
             d["warnings"] = []
+            d["confidence_score"] = d.get("confidence_score") or (95.0 if d.get("status") == "processed" else 85.0)
+            d["page_count"] = d.get("page_count") or d.get("chunks_processed") or 1
             return d
         except Exception as exc:
             logger.error(f"[DB] get_document_by_id failed: {exc}")

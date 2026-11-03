@@ -53,13 +53,33 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         setState(() => _isUploading = true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Uploading and processing ${file.name}...')),
+                ],
+              ),
+              duration: const Duration(seconds: 8),
+              backgroundColor: const Color(0xFF1E293B),
+            ),
+          );
+        }
 
         final res = await _api.uploadDocument(file);
         if (mounted) {
           setState(() => _isUploading = false);
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Uploaded & Extracted: ${file.name} (${res['chunks_count']} passages)'),
+              content: Text('Uploaded & Extracted: ${file.name} (${res['chunks_count'] ?? 0} passages)'),
               backgroundColor: const Color(0xFF008A3F),
             ),
           );
@@ -69,8 +89,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUploading = false);
+        final cleanMsg = e.toString().replaceAll('Exception: ', '');
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(cleanMsg),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
         );
       }
     }

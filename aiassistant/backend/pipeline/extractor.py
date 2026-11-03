@@ -3,7 +3,7 @@ import re
 import time
 import tempfile
 import fitz  # PyMuPDF
-import pdfplumber
+import gc
 from typing import List, Dict, Any, Tuple
 
 # ── Text Cleaning Utilities ───────────────────────────────────────────────────
@@ -165,35 +165,7 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
     page_count = len(doc)
     processed_pages = 0
 
-    # Step 1: Extract tables per page using pdfplumber
-    tables_per_page = {}
-    try:
-        with pdfplumber.open(pdf_path) as plum:
-            for p_idx, p in enumerate(plum.pages):
-                extracted_tables = p.extract_tables()
-                if extracted_tables:
-                    markdown_tables = []
-                    for t in extracted_tables:
-                        if not t or len(t) < 1:
-                            continue
-                        clean_rows = []
-                        for row in t:
-                            cells = [str(c).replace('\n', ' ').strip() if c else "" for c in row]
-                            clean_rows.append(" | ".join(cells))
-                        if len(clean_rows) >= 2:
-                            # Add markdown header delimiter
-                            header_line = "| " + clean_rows[0] + " |"
-                            col_count = len(clean_rows[0].split(" | "))
-                            delim = "| " + " | ".join(["---"] * col_count) + " |"
-                            body_lines = ["| " + r + " |" for r in clean_rows[1:]]
-                            md_table = "\n".join([header_line, delim] + body_lines)
-                            markdown_tables.append(md_table)
-                    if markdown_tables:
-                        tables_per_page[p_idx + 1] = markdown_tables
-    except Exception as e:
-        warnings.append(f"Table detection notice: {str(e)}")
-
-    # Step 2: Extract text using PyMuPDF block layout
+    # Step 1: Process each page sequentially with PyMuPDF native layout and table recovery
     for page_num in range(page_count):
         p_no = page_num + 1
         page = doc.load_page(page_num)
@@ -205,22 +177,13 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
         # Scanned page detection
         if len(direct_text) < 40 and len(page_images) > 0:
             warnings.append(f"Page {p_no}: Low embedded text detected ({len(direct_text)} chars); image scan present.")
-            # OCR fallback
+            # Use PyMuPDF's built-in OCR (Tesseract wrapper, zero additional RAM models)
             try:
-                from paddleocr import PaddleOCR
-                ocr_instance = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-                pix = page.get_pixmap(dpi=150)
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
-                    pix.save(tmp_img.name)
-                    res = ocr_instance.ocr(tmp_img.name, cls=True)
-                    os.remove(tmp_img.name)
-                
-                ocr_text = []
-                if res and res[0]:
-                    ocr_text = [line[1][0] for line in res[0]]
+                tp = page.get_textpage_ocr(flags=3, dpi=150, full=False)
+                ocr_text = page.get_text(textpage=tp).strip()
                 if ocr_text:
                     ocr_used = True
-                    joined_ocr = clean_text("\n".join(ocr_text))
+                    joined_ocr = clean_text(ocr_text)
                     raw_pages.append(joined_ocr)
                     text_blocks.append({
                         "page_number": p_no,
@@ -230,8 +193,10 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
                     })
                     processed_pages += 1
                     continue
+                else:
+                    warnings.append(f"Page {p_no}: PyMuPDF OCR returned no text; treating as blank.")
             except Exception as ocr_err:
-                warnings.append(f"Page {p_no}: OCR fallback unavailable ({str(ocr_err)}).")
+                warnings.append(f"Page {p_no}: OCR fallback unavailable ({str(ocr_err)[:80]}).")
 
         # Digital text extraction with reading order recovery
         blocks = page.get_text("blocks")
@@ -264,10 +229,23 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
 
             page_content_pieces.append(b_text)
 
-        # Append extracted markdown tables if any exist for this page
-        if p_no in tables_per_page:
-            for tbl in tables_per_page[p_no]:
-                page_content_pieces.append(f"\n[Table on Page {p_no}]\n{tbl}\n")
+        # Native PyMuPDF table extraction per page (C-level speed, near-zero RAM)
+        try:
+            tabs = page.find_tables()
+            for tab in tabs:
+                clean_rows = []
+                for row in tab.extract():
+                    cells = [str(c).replace('\n', ' ').strip() if c else "" for c in row]
+                    clean_rows.append(" | ".join(cells))
+                if len(clean_rows) >= 2:
+                    header_line = "| " + clean_rows[0] + " |"
+                    col_count = len(clean_rows[0].split(" | "))
+                    delim = "| " + " | ".join(["---"] * col_count) + " |"
+                    body_lines = ["| " + r + " |" for r in clean_rows[1:]]
+                    md_table = "\n".join([header_line, delim] + body_lines)
+                    page_content_pieces.append(f"\n[Table on Page {p_no}]\n{md_table}\n")
+        except Exception as e:
+            pass
 
         full_page_text = clean_text("\n\n".join(page_content_pieces))
         if full_page_text:
@@ -283,6 +261,7 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
             warnings.append(f"Page {p_no}: No readable text found.")
 
     doc.close()
+    gc.collect()
 
     # Step 3: Strip repeated running headers & footers
     if len(raw_pages) >= 3:
@@ -302,7 +281,7 @@ def extract_pdf_precision(pdf_path: str) -> Dict[str, Any]:
         "page_count": page_count,
         "processed_pages": processed_pages,
         "ocr_used": ocr_used,
-        "extraction_method": "PyMuPDF + pdfplumber (Hybrid Layout Recovery)",
+        "extraction_method": "PyMuPDF Native Precision Layout",
         "duration_seconds": duration,
         "confidence_score": confidence,
         "warnings": warnings,

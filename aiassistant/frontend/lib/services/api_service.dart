@@ -1,12 +1,18 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+
+  // Storage keys for persistent sessions
+  static const String _keyToken = 'em_auth_token';
+  static const String _keyUser = 'em_current_user';
 
   // Production Render Cloud Base URL
   String baseUrl = 'https://exam-mate-backend-w5t6.onrender.com/api';
@@ -21,6 +27,62 @@ class ApiService {
     return headers;
   }
 
+  // ── Session Persistence ─────────────────────────────────────────────────────
+
+  Future<void> _saveSession(String authToken, Map<String, dynamic> user) async {
+    token = authToken;
+    currentUser = user;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyToken, authToken);
+      await prefs.setString(_keyUser, json.encode(user));
+    } catch (_) {}
+  }
+
+  /// Restores session on app startup without prematurely signing out the user.
+  Future<bool> restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString(_keyToken);
+      final savedUserStr = prefs.getString(_keyUser);
+
+      if (savedToken == null || savedToken.isEmpty) {
+        token = null;
+        currentUser = null;
+        return false;
+      }
+
+      token = savedToken;
+      if (savedUserStr != null && savedUserStr.isNotEmpty) {
+        try {
+          currentUser = json.decode(savedUserStr);
+        } catch (_) {}
+      }
+
+      // Validate session with backend profile check
+      try {
+        final profile = await getProfile().timeout(const Duration(seconds: 4));
+        currentUser = {
+          ...?currentUser,
+          ...profile,
+        };
+        await prefs.setString(_keyUser, json.encode(currentUser));
+        return true;
+      } on Exception catch (e) {
+        final err = e.toString().toLowerCase();
+        // Only clear session if explicitly rejected (expired or invalid token)
+        if (err.contains('401') || err.contains('token expired') || err.contains('invalid token')) {
+          await logout();
+          return false;
+        }
+        // If offline or network timeout, preserve the session so user is not logged out!
+        return true;
+      }
+    } catch (_) {
+      return token != null;
+    }
+  }
+
   // ── Authentication ──────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -31,8 +93,7 @@ class ApiService {
     );
     final data = json.decode(response.body);
     if (response.statusCode == 200) {
-      token = data['token'];
-      currentUser = data['user'];
+      await _saveSession(data['token'], Map<String, dynamic>.from(data['user']));
       return data;
     } else {
       throw Exception(data['error'] ?? 'Login failed');
@@ -47,17 +108,21 @@ class ApiService {
     );
     final data = json.decode(response.body);
     if (response.statusCode == 201) {
-      token = data['token'];
-      currentUser = data['user'];
+      await _saveSession(data['token'], Map<String, dynamic>.from(data['user']));
       return data;
     } else {
       throw Exception(data['error'] ?? 'Registration failed');
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
     token = null;
     currentUser = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyToken);
+      await prefs.remove(_keyUser);
+    } catch (_) {}
   }
 
   // ── Dashboard & Profile ─────────────────────────────────────────────────────
@@ -97,28 +162,63 @@ class ApiService {
     throw Exception('Failed to load document details');
   }
 
+  dynamic _safeJsonDecode(String body) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      return <String, dynamic>{'error': 'Server returned an empty response. The server may be waking up.'};
+    }
+    if (trimmed.startsWith('<')) {
+      return <String, dynamic>{'error': 'Server gateway error (Render backend may be restarting). Please try again shortly.'};
+    }
+    try {
+      return json.decode(trimmed);
+    } catch (e) {
+      return <String, dynamic>{'error': 'Invalid response format from server: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> uploadDocument(PlatformFile file) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
 
-    if (file.bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes('file', file.bytes!, filename: file.name));
-    } else if (file.path != null) {
-      request.files.add(await http.MultipartFile.fromPath('file', file.path!));
-    } else {
-      throw Exception('Selected file has no data');
-    }
+      if (file.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes('file', file.bytes!, filename: file.name));
+      } else if (file.path != null) {
+        request.files.add(await http.MultipartFile.fromPath('file', file.path!));
+      } else {
+        throw Exception('Selected file has no data');
+      }
 
-    var streamedResponse = await request.send();
-    var responseData = await streamedResponse.stream.bytesToString();
-    var data = json.decode(responseData);
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 120),
+        onTimeout: () {
+          throw TimeoutException('Upload timed out after 120 seconds. The server may be busy processing large files.');
+        },
+      );
 
-    if (streamedResponse.statusCode == 201) {
-      return data;
-    } else {
-      throw Exception(data['error'] ?? 'Upload and extraction failed');
+      final responseData = await streamedResponse.stream.bytesToString().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => '',
+      );
+
+      final decoded = _safeJsonDecode(responseData);
+      final Map<String, dynamic> data = (decoded is Map<String, dynamic>)
+          ? decoded
+          : <String, dynamic>{'error': 'Unexpected response from server: $decoded'};
+
+      if (streamedResponse.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['error'] ?? 'Upload and extraction failed (HTTP ${streamedResponse.statusCode})');
+      }
+    } on TimeoutException catch (e) {
+      throw Exception(e.message ?? 'Upload timed out after 120 seconds. Please try again.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Upload failed: $e');
     }
   }
 

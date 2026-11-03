@@ -236,8 +236,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  _api.logout();
+                onPressed: () async {
+                  await _api.logout();
                   widget.onLogout();
                 },
                 icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),

@@ -35,3 +35,6 @@ query
 test.pdf
 powershell.bat
 **/scratch/
+
+**/backups/
+*.backup

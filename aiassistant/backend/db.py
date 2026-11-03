@@ -1,10 +1,45 @@
+"""
+ExamMate AI – db.py (Phase 2 Migration: Supabase-First Storage)
+================================================================
+All production data operations now route to Supabase PostgreSQL.
+SQLite is initialised ONLY for local development fallback (not used on Render).
+"""
 import os
-import sqlite3
 import json
 import uuid
 import datetime
+import logging
 from typing import Dict, Any, List, Optional
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+logger = logging.getLogger(__name__)
+
+# ── Supabase Client (singleton) ───────────────────────────────────────────────
+
+_sb = None
+
+def _get_sb():
+    """Return a Supabase service-role client (initialised once)."""
+    global _sb
+    if _sb is not None:
+        return _sb
+    from supabase import create_client
+    url = os.environ.get("SUPABASE_URL")
+    # Prefer service-role key; fall back to anon key
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured")
+    _sb = create_client(url, key)
+    logger.info("[DB] Supabase client initialised (service-role)")
+    return _sb
+
+
+# ── Compatibility shim – keep SQLite init for local dev ──────────────────────
+
+import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "exam_mate.db")
 
@@ -14,26 +49,23 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Initializes the relational schema with full support for precision learning."""
+    """Create local SQLite schema for dev environments."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # 1. Users
-    cursor.execute("""
+    cursor.executescript("""
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
+        password TEXT,
         name TEXT,
         university TEXT,
         study_streak INTEGER DEFAULT 0,
-        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        documents_uploaded INTEGER DEFAULT 0,
+        total_questions INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_active TEXT DEFAULT CURRENT_TIMESTAMP,
+        avg_score REAL DEFAULT 0
     );
-    """)
-
-    # 2. Documents
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS documents (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -41,21 +73,21 @@ def init_db():
         stored_path TEXT NOT NULL,
         file_type TEXT,
         file_size_bytes INTEGER DEFAULT 0,
+        file_size_mb REAL DEFAULT 0,
         page_count INTEGER DEFAULT 0,
         processed_pages INTEGER DEFAULT 0,
-        ocr_used BOOLEAN DEFAULT 0,
+        chunks_processed INTEGER DEFAULT 0,
+        ocr_used INTEGER DEFAULT 0,
         extraction_method TEXT,
         confidence_score REAL DEFAULT 0.0,
         warnings TEXT DEFAULT '[]',
         summary TEXT,
         status TEXT DEFAULT 'uploaded',
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        storage_bucket TEXT DEFAULT 'exam-documents',
+        storage_path TEXT,
+        doc_id TEXT,
+        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 3. Document Chunks (Structured Extraction Storage)
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS document_chunks (
         id TEXT PRIMARY KEY,
         document_id TEXT NOT NULL,
@@ -65,46 +97,35 @@ def init_db():
         chunk_text TEXT NOT NULL,
         chunk_type TEXT DEFAULT 'text',
         token_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 4. Questions & Exam Answers
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS questions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         document_id TEXT,
         question TEXT NOT NULL,
+        answer TEXT,
+        answer_text TEXT,
         mode TEXT DEFAULT 'detailed',
         marks INTEGER DEFAULT 5,
-        answer_text TEXT NOT NULL,
+        keywords TEXT,
+        subject TEXT,
+        diagrams TEXT,
+        mermaid_code TEXT,
         structured_answer TEXT,
         citations TEXT DEFAULT '[]',
-        is_grounded BOOLEAN DEFAULT 1,
+        is_grounded INTEGER DEFAULT 1,
         confidence REAL DEFAULT 1.0,
-        asked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        asked_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 5. Flashcard Decks
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS flashcard_decks (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         document_id TEXT,
         title TEXT NOT NULL,
         description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 6. Flashcards with Spaced Repetition (SM-2)
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS flashcards (
         id TEXT PRIMARY KEY,
         deck_id TEXT NOT NULL,
@@ -117,17 +138,11 @@ def init_db():
         ease_factor REAL DEFAULT 2.5,
         interval_days INTEGER DEFAULT 0,
         repetition_count INTEGER DEFAULT 0,
-        next_review TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_reviewed TIMESTAMP,
+        next_review TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_reviewed TEXT,
         last_rating TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 7. Quizzes
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS quizzes (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -135,28 +150,18 @@ def init_db():
         title TEXT NOT NULL,
         subject TEXT DEFAULT 'General',
         total_questions INTEGER DEFAULT 5,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 8. Quiz Questions
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS quiz_questions (
         id TEXT PRIMARY KEY,
         quiz_id TEXT NOT NULL,
         question_text TEXT NOT NULL,
-        options TEXT NOT NULL, -- JSON array of 4 strings
+        options TEXT NOT NULL,
         correct_option_index INTEGER NOT NULL,
         explanation TEXT,
         source_page INTEGER,
-        source_snippet TEXT,
-        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+        source_snippet TEXT
     );
-    """)
-
-    # 9. Quiz Attempts
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS quiz_attempts (
         id TEXT PRIMARY KEY,
         quiz_id TEXT NOT NULL,
@@ -164,762 +169,836 @@ def init_db():
         score INTEGER NOT NULL,
         total INTEGER NOT NULL,
         percentage REAL NOT NULL,
-        user_answers TEXT, -- JSON array of selected indices
-        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        user_answers TEXT,
+        completed_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 10. Exams
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS exams (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         title TEXT NOT NULL,
         subject TEXT NOT NULL,
-        exam_date TIMESTAMP NOT NULL,
+        exam_date TEXT NOT NULL,
         target_score INTEGER DEFAULT 90,
         syllabus TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 11. Study Tasks
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         exam_id TEXT,
         title TEXT NOT NULL,
-        due_date TIMESTAMP,
-        is_completed BOOLEAN DEFAULT 0,
+        due_date TEXT,
+        is_completed INTEGER DEFAULT 0,
         priority TEXT DEFAULT 'medium',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE SET NULL
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
-    """)
-
-    # 12. Focus Sessions
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS focus_sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         duration_minutes INTEGER NOT NULL,
         subject TEXT DEFAULT 'General Study',
         notes TEXT,
-        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        completed_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """)
-
     conn.commit()
     conn.close()
 
-# Initialize tables immediately on module load
-init_db()
+# Initialise SQLite schema on load (no-op on Render since data lives in Supabase)
+try:
+    init_db()
+except Exception as _e:
+    logger.warning(f"[DB] SQLite init skipped: {_e}")
 
-# ── Database Service Operations ───────────────────────────────────────────────
+
+# ── Helper: upload file to Supabase Storage ───────────────────────────────────
+
+def upload_to_storage(local_path: str, storage_path: str, bucket: str = "exam-documents") -> Optional[str]:
+    """
+    Upload a local file to Supabase Storage.
+    Returns the storage_path on success, None on failure.
+    Skips upload if a file already exists at that path.
+    """
+    sb = _get_sb()
+    try:
+        # Check if file already exists by trying to get its URL
+        existing = sb.storage.from_(bucket).list(storage_path.rsplit("/", 1)[0] if "/" in storage_path else "")
+        if existing:
+            names = [f.get("name") for f in existing if isinstance(f, dict)]
+            if storage_path.rsplit("/", 1)[-1] in names:
+                logger.info(f"[STORAGE] File already exists at {storage_path}, skipping upload")
+                return storage_path
+    except Exception:
+        pass  # Listing may fail for empty paths – proceed with upload
+
+    if not os.path.exists(local_path):
+        logger.warning(f"[STORAGE] Local file not found: {local_path}")
+        return None
+
+    try:
+        with open(local_path, "rb") as fh:
+            data = fh.read()
+        sb.storage.from_(bucket).upload(storage_path, data)
+        logger.info(f"[STORAGE] Uploaded {local_path} -> {bucket}/{storage_path}")
+        return storage_path
+    except Exception as exc:
+        logger.error(f"[STORAGE] Upload failed for {local_path}: {exc}")
+        return None
+
+
+def get_storage_signed_url(storage_path: str, bucket: str = "exam-documents", expires: int = 3600) -> Optional[str]:
+    """Return a signed URL for a private Supabase Storage file."""
+    try:
+        sb = _get_sb()
+        res = sb.storage.from_(bucket).create_signed_url(storage_path, expires)
+        return res.get("signedURL") or res.get("signedUrl")
+    except Exception as exc:
+        logger.error(f"[STORAGE] Signed URL failed for {storage_path}: {exc}")
+        return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DatabaseManager – all methods route to Supabase PostgreSQL
+# ══════════════════════════════════════════════════════════════════════════════
 
 class DatabaseManager:
+
+    # ── Users ─────────────────────────────────────────────────────────────────
+
     @staticmethod
     def create_user(name: str, email: str, password: str) -> Optional[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            user_id = str(uuid.uuid4())
-            pw_hash = generate_password_hash(password)
-            cursor.execute("""
-                INSERT INTO users (id, name, email, password_hash, study_streak, last_active)
-                VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-            """, (user_id, name, email.lower().strip(), pw_hash))
-            conn.commit()
-            return {"id": user_id, "name": name, "email": email.lower().strip()}
-        except sqlite3.IntegrityError:
+        sb = _get_sb()
+        email = email.lower().strip()
+        # Check for duplicate
+        existing = sb.table("users").select("id").eq("email", email).execute()
+        if existing.data:
             return None
-        finally:
-            conn.close()
+        user_id = str(uuid.uuid4())
+        pw_hash = generate_password_hash(password)
+        row = {
+            "id": user_id,
+            "email": email,
+            "password": pw_hash,
+            "name": name,
+            "study_streak": 1,
+            "documents_uploaded": 0,
+            "total_questions": 0,
+            "avg_score": 0,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "last_active": datetime.datetime.utcnow().isoformat(),
+        }
+        try:
+            sb.table("users").insert(row).execute()
+            logger.info(f"[DB] User created: {email} ({user_id})")
+            return {"id": user_id, "name": name, "email": email}
+        except Exception as exc:
+            logger.error(f"[DB] create_user failed: {exc}")
+            return None
 
     @staticmethod
     def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),))
-        row = cursor.fetchone()
-        conn.close()
-        return dict(row) if row else None
+        sb = _get_sb()
+        try:
+            res = sb.table("users").select("*").eq("email", email.lower().strip()).execute()
+            return res.data[0] if res.data else None
+        except Exception as exc:
+            logger.error(f"[DB] get_user_by_email failed: {exc}")
+            return None
 
     @staticmethod
     def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-        row = cursor.fetchone()
-        conn.close()
-        return dict(row) if row else None
+        sb = _get_sb()
+        try:
+            res = sb.table("users").select("*").eq("id", user_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as exc:
+            logger.error(f"[DB] get_user_by_id failed: {exc}")
+            return None
 
     @staticmethod
     def update_streak(user_id: str) -> int:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT study_streak, last_active FROM users WHERE id = ?", (user_id,))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return 0
-        streak = row["study_streak"] or 0
-        last_active = row["last_active"]
-        now = datetime.datetime.utcnow()
-        new_streak = streak
+        sb = _get_sb()
+        try:
+            res = sb.table("users").select("study_streak,last_active").eq("id", user_id).execute()
+            if not res.data:
+                return 0
+            row = res.data[0]
+            streak = row.get("study_streak") or 0
+            last_active = row.get("last_active")
+            now = datetime.datetime.utcnow()
+            new_streak = streak
 
-        if last_active:
-            try:
-                last_dt = datetime.datetime.fromisoformat(str(last_active).replace("Z", "+00:00"))
-                diff_days = (now.date() - last_dt.date()).days
-                if diff_days == 1:
-                    new_streak += 1
-                elif diff_days > 1:
+            if last_active:
+                try:
+                    last_dt = datetime.datetime.fromisoformat(str(last_active).replace("Z", "+00:00"))
+                    if last_dt.tzinfo:
+                        last_dt = last_dt.replace(tzinfo=None)
+                    diff_days = (now.date() - last_dt.date()).days
+                    if diff_days == 1:
+                        new_streak += 1
+                    elif diff_days > 1:
+                        new_streak = 1
+                    elif diff_days == 0 and new_streak == 0:
+                        new_streak = 1
+                except Exception:
                     new_streak = 1
-                elif diff_days == 0 and new_streak == 0:
-                    new_streak = 1
-            except Exception:
+            else:
                 new_streak = 1
-        else:
-            new_streak = 1
 
-        cursor.execute("UPDATE users SET study_streak = ?, last_active = CURRENT_TIMESTAMP WHERE id = ?", (new_streak, user_id))
-        conn.commit()
-        conn.close()
-        return new_streak
+            sb.table("users").update({
+                "study_streak": new_streak,
+                "last_active": now.isoformat()
+            }).eq("id", user_id).execute()
+            return new_streak
+        except Exception as exc:
+            logger.error(f"[DB] update_streak failed: {exc}")
+            return 0
 
-    # Documents
+    # ── Documents ─────────────────────────────────────────────────────────────
+
     @staticmethod
     def save_document(doc_data: Dict[str, Any]) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         doc_id = doc_data.get("id") or str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO documents (
-                id, user_id, filename, stored_path, file_type, file_size_bytes,
-                page_count, processed_pages, ocr_used, extraction_method,
-                confidence_score, warnings, summary, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            doc_id,
-            doc_data["user_id"],
-            doc_data["filename"],
-            doc_data["stored_path"],
-            doc_data.get("file_type", "UNKNOWN"),
-            doc_data.get("file_size_bytes", 0),
-            doc_data.get("page_count", 0),
-            doc_data.get("processed_pages", 0),
-            1 if doc_data.get("ocr_used") else 0,
-            doc_data.get("extraction_method", "hybrid"),
-            doc_data.get("confidence_score", 0.0),
-            json.dumps(doc_data.get("warnings", [])),
-            doc_data.get("summary", ""),
-            doc_data.get("status", "completed")
-        ))
-        conn.commit()
-        conn.close()
+        file_size_bytes = doc_data.get("file_size_bytes", 0)
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 4) if file_size_bytes else 0
+
+        row = {
+            "id": doc_id,
+            "user_id": doc_data["user_id"],
+            "filename": doc_data["filename"],
+            "stored_path": doc_data.get("stored_path", ""),
+            "file_type": doc_data.get("file_type", "UNKNOWN"),
+            "file_size_mb": doc_data.get("file_size_mb", file_size_mb),
+            "chunks_processed": doc_data.get("chunks_processed", 0),
+            "status": doc_data.get("status", "uploaded"),
+            "storage_bucket": "exam-documents",
+            "storage_path": doc_data.get("storage_path"),
+            "doc_id": doc_data.get("doc_id"),
+            "uploaded_at": datetime.datetime.utcnow().isoformat(),
+        }
+
+        # summary is optional
+        if doc_data.get("summary"):
+            row["summary"] = doc_data["summary"]
+
+        try:
+            sb.table("documents").insert(row).execute()
+            logger.info(f"[DB] Document saved: {doc_data['filename']} ({doc_id})")
+        except Exception as exc:
+            err = str(exc)
+            if "duplicate" in err.lower() or "23505" in err:
+                logger.warning(f"[DB] Document {doc_id} already exists, skipping insert")
+            else:
+                logger.error(f"[DB] save_document failed: {exc}")
         return doc_id
+
+    @staticmethod
+    def update_document_status(doc_id: str, status: str, chunks_processed: int = 0, storage_path: str = None):
+        sb = _get_sb()
+        try:
+            updates = {"status": status, "chunks_processed": chunks_processed}
+            if storage_path:
+                updates["storage_path"] = storage_path
+            sb.table("documents").update(updates).eq("id", doc_id).execute()
+        except Exception as exc:
+            logger.error(f"[DB] update_document_status failed: {exc}")
 
     @staticmethod
     def save_document_chunks(chunks: List[Dict[str, Any]]):
         if not chunks:
             return
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        for c in chunks:
-            c_id = c.get("id") or str(uuid.uuid4())
-            cursor.execute("""
-                INSERT INTO document_chunks (
-                    id, document_id, user_id, page_number, section_title, chunk_text, chunk_type, token_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                c_id,
-                c["document_id"],
-                c["user_id"],
-                c.get("page_number", 1),
-                c.get("section_title", "General"),
-                c["chunk_text"],
-                c.get("chunk_type", "text"),
-                c.get("token_count", len(c["chunk_text"].split()))
-            ))
-        conn.commit()
-        conn.close()
+        sb = _get_sb()
+        rows = []
+        for idx, c in enumerate(chunks):
+            rows.append({
+                "id": c.get("id") or str(uuid.uuid4()),
+                "document_id": c["document_id"],
+                "user_id": c["user_id"],
+                "chunk_index": c.get("page_number", idx + 1),  # Supabase uses chunk_index
+                "content": c["chunk_text"],                     # Supabase uses content
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            })
+        try:
+            # Insert in batches of 100 to avoid request size limits
+            for i in range(0, len(rows), 100):
+                batch = rows[i:i+100]
+                sb.table("document_chunks").upsert(batch, on_conflict="id").execute()
+            logger.info(f"[DB] Saved {len(rows)} document chunks")
+        except Exception as exc:
+            logger.error(f"[DB] save_document_chunks failed: {exc}")
 
     @staticmethod
     def get_documents_by_user(user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, user_id, filename, file_type, file_size_bytes, page_count,
-                   processed_pages, ocr_used, extraction_method, confidence_score,
-                   warnings, summary, status, uploaded_at
-            FROM documents WHERE user_id = ? ORDER BY uploaded_at DESC
-        """, (user_id,))
-        rows = cursor.fetchall()
-        docs = []
-        for r in rows:
-            d = dict(r)
-            try:
-                d["warnings"] = json.loads(d["warnings"]) if d["warnings"] else []
-            except Exception:
+        sb = _get_sb()
+        try:
+            res = sb.table("documents").select(
+                "id,user_id,filename,file_type,file_size_mb,chunks_processed,"
+                "status,storage_bucket,storage_path,doc_id,uploaded_at,summary"
+            ).eq("user_id", user_id).order("uploaded_at", desc=True).execute()
+            docs = []
+            for d in res.data:
+                d["file_size_bytes"] = int((d.get("file_size_mb") or 0) * 1024 * 1024)
                 d["warnings"] = []
-            docs.append(d)
-        conn.close()
-        return docs
+                docs.append(d)
+            return docs
+        except Exception as exc:
+            logger.error(f"[DB] get_documents_by_user failed: {exc}")
+            return []
 
     @staticmethod
     def get_document_by_id(doc_id: str, user_id: str) -> Optional[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return None
-        d = dict(row)
+        sb = _get_sb()
         try:
-            d["warnings"] = json.loads(d["warnings"]) if d["warnings"] else []
-        except Exception:
+            res = sb.table("documents").select("*").eq("id", doc_id).eq("user_id", user_id).execute()
+            if not res.data:
+                return None
+            d = res.data[0]
+            d["file_size_bytes"] = int((d.get("file_size_mb") or 0) * 1024 * 1024)
             d["warnings"] = []
-        conn.close()
-        return d
+            return d
+        except Exception as exc:
+            logger.error(f"[DB] get_document_by_id failed: {exc}")
+            return None
 
     @staticmethod
     def get_document_chunks(doc_id: str, user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, document_id, user_id, page_number, section_title, chunk_text, chunk_type, token_count
-            FROM document_chunks
-            WHERE document_id = ? AND user_id = ?
-            ORDER BY page_number ASC, rowid ASC
-        """, (doc_id, user_id))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        sb = _get_sb()
+        try:
+            res = sb.table("document_chunks").select(
+                "id,document_id,user_id,chunk_index,content"
+            ).eq("document_id", doc_id).eq("user_id", user_id).order("chunk_index").execute()
+            # Normalise to internal field names expected by retriever/generator
+            result = []
+            for r in (res.data or []):
+                r["page_number"] = r.get("chunk_index", 1)
+                r["chunk_text"] = r.get("content", "")
+                r["section_title"] = r.get("section_title", "General")
+                r["chunk_type"] = r.get("chunk_type", "text")
+                r["token_count"] = r.get("token_count", len(r["chunk_text"].split()))
+                result.append(r)
+            return result
+        except Exception as exc:
+            logger.error(f"[DB] get_document_chunks failed: {exc}")
+            return []
 
     @staticmethod
     def delete_document(doc_id: str, user_id: str) -> bool:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT stored_path FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return False
-        stored_path = row["stored_path"]
-        if os.path.exists(stored_path):
-            try:
-                os.remove(stored_path)
-            except Exception:
-                pass
-        cursor.execute("DELETE FROM document_chunks WHERE document_id = ? AND user_id = ?", (doc_id, user_id))
-        cursor.execute("DELETE FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
-        conn.commit()
-        conn.close()
-        return True
+        sb = _get_sb()
+        try:
+            # Get storage_path before deleting
+            res = sb.table("documents").select("stored_path,storage_path,storage_bucket").eq("id", doc_id).eq("user_id", user_id).execute()
+            if not res.data:
+                return False
+            doc = res.data[0]
 
-    # Questions & Grounded Answers
+            # Remove local file if present
+            stored_path = doc.get("stored_path", "")
+            if stored_path and os.path.exists(stored_path):
+                try:
+                    os.remove(stored_path)
+                except Exception:
+                    pass
+
+            # Delete chunks then document
+            sb.table("document_chunks").delete().eq("document_id", doc_id).eq("user_id", user_id).execute()
+            sb.table("documents").delete().eq("id", doc_id).eq("user_id", user_id).execute()
+            logger.info(f"[DB] Deleted document {doc_id}")
+            return True
+        except Exception as exc:
+            logger.error(f"[DB] delete_document failed: {exc}")
+            return False
+
+    # ── Questions ─────────────────────────────────────────────────────────────
+
     @staticmethod
     def save_question(q_data: Dict[str, Any]) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         q_id = q_data.get("id") or str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO questions (
-                id, user_id, document_id, question, mode, marks, answer_text,
-                structured_answer, citations, is_grounded, confidence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            q_id,
-            q_data["user_id"],
-            q_data.get("document_id"),
-            q_data["question"],
-            q_data.get("mode", "detailed"),
-            q_data.get("marks", 5),
-            q_data["answer_text"],
-            json.dumps(q_data.get("structured_answer", {})),
-            json.dumps(q_data.get("citations", [])),
-            1 if q_data.get("is_grounded", True) else 0,
-            q_data.get("confidence", 1.0)
-        ))
-        conn.commit()
-        conn.close()
+        row = {
+            "id": q_id,
+            "user_id": q_data["user_id"],
+            "document_id": q_data.get("document_id"),
+            "question": q_data["question"],
+            "answer": q_data.get("answer_text") or q_data.get("answer", ""),
+            "mode": q_data.get("mode", "detailed"),
+            "marks": q_data.get("marks", 5),
+            "keywords": json.dumps(q_data.get("keywords", [])) if isinstance(q_data.get("keywords"), list) else (q_data.get("keywords") or ""),
+            "subject": q_data.get("subject", ""),
+            "asked_at": datetime.datetime.utcnow().isoformat(),
+        }
+        # Store structured data in diagrams column if present
+        if q_data.get("structured_answer"):
+            row["diagrams"] = json.dumps(q_data["structured_answer"])
+        try:
+            sb.table("questions").insert(row).execute()
+        except Exception as exc:
+            logger.error(f"[DB] save_question failed: {exc}")
         return q_id
 
     @staticmethod
     def get_questions_by_user(user_id: str, query_filter: str = "") -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        if query_filter:
-            cursor.execute("""
-                SELECT * FROM questions
-                WHERE user_id = ? AND question LIKE ?
-                ORDER BY asked_at DESC LIMIT 50
-            """, (user_id, f"%{query_filter}%"))
-        else:
-            cursor.execute("""
-                SELECT * FROM questions
-                WHERE user_id = ?
-                ORDER BY asked_at DESC LIMIT 50
-            """, (user_id,))
-        rows = cursor.fetchall()
-        result = []
-        for r in rows:
-            item = dict(r)
-            try:
-                item["structured_answer"] = json.loads(item["structured_answer"]) if item["structured_answer"] else {}
-            except Exception:
-                item["structured_answer"] = {}
-            try:
-                item["citations"] = json.loads(item["citations"]) if item["citations"] else []
-            except Exception:
-                item["citations"] = []
-            result.append(item)
-        conn.close()
-        return result
+        sb = _get_sb()
+        try:
+            query = sb.table("questions").select("*").eq("user_id", user_id).order("asked_at", desc=True).limit(50)
+            res = query.execute()
+            result = []
+            for r in res.data:
+                # Normalise field names for backward compat
+                r["answer_text"] = r.get("answer") or r.get("answer_text", "")
+                r["structured_answer"] = {}
+                r["citations"] = []
+                if query_filter and query_filter.lower() not in (r.get("question") or "").lower():
+                    continue
+                result.append(r)
+            return result
+        except Exception as exc:
+            logger.error(f"[DB] get_questions_by_user failed: {exc}")
+            return []
 
-    # Flashcards & Spaced Repetition
+    # ── Flashcards ─────────────────────────────────────────────────────────────
+
     @staticmethod
     def create_deck(user_id: str, title: str, description: str = "", document_id: Optional[str] = None) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         deck_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO flashcard_decks (id, user_id, document_id, title, description)
-            VALUES (?, ?, ?, ?, ?)
-        """, (deck_id, user_id, document_id, title, description))
-        conn.commit()
-        conn.close()
+        row = {
+            "id": deck_id,
+            "user_id": user_id,
+            "document_id": document_id,
+            "title": title,
+            "description": description,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+        }
+        try:
+            sb.table("flashcard_decks").insert(row).execute()
+        except Exception as exc:
+            logger.error(f"[DB] create_deck failed: {exc}")
         return deck_id
 
     @staticmethod
     def get_decks(user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT d.*, 
-                   COUNT(f.id) as total_cards,
-                   SUM(CASE WHEN f.next_review <= CURRENT_TIMESTAMP THEN 1 ELSE 0 END) as due_cards
-            FROM flashcard_decks d
-            LEFT JOIN flashcards f ON d.id = f.deck_id
-            WHERE d.user_id = ?
-            GROUP BY d.id
-            ORDER BY d.created_at DESC
-        """, (user_id,))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        sb = _get_sb()
+        try:
+            decks_res = sb.table("flashcard_decks").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+            decks = decks_res.data or []
+            # Attach card counts
+            for deck in decks:
+                cards_res = sb.table("flashcards").select("id,next_review").eq("deck_id", deck["id"]).execute()
+                cards = cards_res.data or []
+                deck["total_cards"] = len(cards)
+                now_iso = datetime.datetime.utcnow().isoformat()
+                deck["due_cards"] = sum(1 for c in cards if (c.get("next_review") or "") <= now_iso)
+            return decks
+        except Exception as exc:
+            logger.error(f"[DB] get_decks failed: {exc}")
+            return []
 
     @staticmethod
-    def add_card(deck_id: str, user_id: str, front: str, back: str, 
-                 document_id: Optional[str] = None, source_page: Optional[int] = None, 
+    def add_card(deck_id: str, user_id: str, front: str, back: str,
+                 document_id: Optional[str] = None, source_page: Optional[int] = None,
                  source_snippet: Optional[str] = None) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         card_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO flashcards (
-                id, deck_id, user_id, document_id, front, back, source_page, source_snippet
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (card_id, deck_id, user_id, document_id, front, back, source_page, source_snippet))
-        conn.commit()
-        conn.close()
+        row = {
+            "id": card_id,
+            "deck_id": deck_id,
+            "user_id": user_id,
+            "document_id": document_id,
+            "front": front,
+            "back": back,
+            "source_page": source_page,
+            "source_snippet": source_snippet,
+            "ease_factor": 2.5,
+            "interval_days": 0,
+            "repetition_count": 0,
+            "next_review": datetime.datetime.utcnow().isoformat(),
+            "created_at": datetime.datetime.utcnow().isoformat(),
+        }
+        try:
+            sb.table("flashcards").insert(row).execute()
+        except Exception as exc:
+            logger.error(f"[DB] add_card failed: {exc}")
         return card_id
 
     @staticmethod
     def get_cards_for_deck(deck_id: str, user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM flashcards WHERE deck_id = ? AND user_id = ? ORDER BY next_review ASC
-        """, (deck_id, user_id))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        sb = _get_sb()
+        try:
+            res = sb.table("flashcards").select("*").eq("deck_id", deck_id).eq("user_id", user_id).order("next_review").execute()
+            return res.data or []
+        except Exception as exc:
+            logger.error(f"[DB] get_cards_for_deck failed: {exc}")
+            return []
 
     @staticmethod
     def review_card(card_id: str, user_id: str, rating: str) -> Dict[str, Any]:
-        """
-        Implements SuperMemo SM-2 Spaced Repetition:
-        Ratings:
-        - 'Again' (1): reset repetitions to 0, interval 1 day
-        - 'Hard' (2): interval * 1.2, ease factor -0.15
-        - 'Good' (3): standard interval progression, unchanged ease
-        - 'Easy' (4): interval * 1.3, ease factor +0.15
-        """
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM flashcards WHERE id = ? AND user_id = ?", (card_id, user_id))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return {"error": "Card not found"}
+        sb = _get_sb()
+        try:
+            res = sb.table("flashcards").select("*").eq("id", card_id).eq("user_id", user_id).execute()
+            if not res.data:
+                return {"error": "Card not found"}
+            card = res.data[0]
+            ease = float(card.get("ease_factor") or 2.5)
+            interval = int(card.get("interval_days") or 0)
+            reps = int(card.get("repetition_count") or 0)
+            rating_lower = (rating or "").lower().strip()
+            now = datetime.datetime.utcnow()
 
-        card = dict(row)
-        ease = float(card.get("ease_factor") or 2.5)
-        interval = int(card.get("interval_days") or 0)
-        reps = int(card.get("repetition_count") or 0)
-
-        rating_lower = rating.lower().strip()
-        now = datetime.datetime.utcnow()
-
-        if rating_lower == "again":
-            reps = 0
-            interval = 1
-            ease = max(1.3, ease - 0.2)
-        elif rating_lower == "hard":
-            reps += 1
-            interval = max(1, int(interval * 1.2)) if interval > 0 else 1
-            ease = max(1.3, ease - 0.15)
-        elif rating_lower == "good":
-            reps += 1
-            if reps == 1:
-                interval = 1
-            elif reps == 2:
-                interval = 6
+            if rating_lower == "again":
+                reps = 0; interval = 1; ease = max(1.3, ease - 0.2)
+            elif rating_lower == "hard":
+                reps += 1; interval = max(1, int(interval * 1.2)) if interval > 0 else 1; ease = max(1.3, ease - 0.15)
+            elif rating_lower == "good":
+                reps += 1
+                interval = 1 if reps == 1 else 6 if reps == 2 else max(1, int(interval * ease))
+            elif rating_lower == "easy":
+                reps += 1
+                interval = 4 if reps == 1 else 10 if reps == 2 else max(1, int(interval * ease * 1.3))
+                ease = min(3.0, ease + 0.15)
             else:
-                interval = max(1, int(interval * ease))
-        elif rating_lower == "easy":
-            reps += 1
-            if reps == 1:
-                interval = 4
-            elif reps == 2:
-                interval = 10
-            else:
-                interval = max(1, int(interval * ease * 1.3))
-            ease = min(3.0, ease + 0.15)
-        else:
-            reps += 1
-            interval = max(1, interval + 1)
+                reps += 1; interval = max(1, interval + 1)
 
-        next_review = now + datetime.timedelta(days=interval)
+            next_review = (now + datetime.timedelta(days=interval)).isoformat()
+            sb.table("flashcards").update({
+                "ease_factor": ease,
+                "interval_days": interval,
+                "repetition_count": reps,
+                "next_review": next_review,
+                "last_reviewed": now.isoformat(),
+                "last_rating": rating,
+            }).eq("id", card_id).eq("user_id", user_id).execute()
 
-        cursor.execute("""
-            UPDATE flashcards SET
-                ease_factor = ?,
-                interval_days = ?,
-                repetition_count = ?,
-                next_review = ?,
-                last_reviewed = CURRENT_TIMESTAMP,
-                last_rating = ?
-            WHERE id = ? AND user_id = ?
-        """, (ease, interval, reps, next_review.isoformat(), rating, card_id, user_id))
-        conn.commit()
-        conn.close()
-
-        return {
-            "card_id": card_id,
-            "next_review": next_review.isoformat(),
-            "interval_days": interval,
-            "repetition_count": reps,
-            "ease_factor": round(ease, 2)
-        }
+            return {
+                "card_id": card_id,
+                "next_review": next_review,
+                "interval_days": interval,
+                "repetition_count": reps,
+                "ease_factor": round(ease, 2),
+            }
+        except Exception as exc:
+            logger.error(f"[DB] review_card failed: {exc}")
+            return {"error": str(exc)}
 
     @staticmethod
     def delete_deck(deck_id: str, user_id: str) -> bool:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM flashcards WHERE deck_id = ? AND user_id = ?", (deck_id, user_id))
-        cursor.execute("DELETE FROM flashcard_decks WHERE id = ? AND user_id = ?", (deck_id, user_id))
-        conn.commit()
-        conn.close()
-        return True
+        sb = _get_sb()
+        try:
+            sb.table("flashcards").delete().eq("deck_id", deck_id).eq("user_id", user_id).execute()
+            sb.table("flashcard_decks").delete().eq("id", deck_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as exc:
+            logger.error(f"[DB] delete_deck failed: {exc}")
+            return False
 
-    # Quizzes
+    # ── Quizzes ───────────────────────────────────────────────────────────────
+
     @staticmethod
-    def create_quiz(user_id: str, title: str, subject: str, document_id: Optional[str], 
+    def create_quiz(user_id: str, title: str, subject: str, document_id: Optional[str],
                     questions_list: List[Dict[str, Any]]) -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         quiz_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO quizzes (id, user_id, document_id, title, subject, total_questions)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (quiz_id, user_id, document_id, title, subject, len(questions_list)))
+        try:
+            sb.table("quizzes").insert({
+                "id": quiz_id,
+                "user_id": user_id,
+                "document_id": document_id,
+                "title": title,
+                "subject": subject,
+                "total_questions": len(questions_list),
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }).execute()
 
-        for q in questions_list:
-            q_id = str(uuid.uuid4())
-            cursor.execute("""
-                INSERT INTO quiz_questions (
-                    id, quiz_id, question_text, options, correct_option_index, explanation, source_page, source_snippet
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                q_id,
-                quiz_id,
-                q["question_text"],
-                json.dumps(q["options"]),
-                int(q["correct_option_index"]),
-                q.get("explanation", ""),
-                q.get("source_page"),
-                q.get("source_snippet")
-            ))
-        conn.commit()
-        conn.close()
+            qq_rows = []
+            for q in questions_list:
+                qq_rows.append({
+                    "id": str(uuid.uuid4()),
+                    "quiz_id": quiz_id,
+                    "question_text": q["question_text"],
+                    "options": json.dumps(q["options"]) if isinstance(q["options"], list) else q["options"],
+                    "correct_option_index": int(q["correct_option_index"]),
+                    "explanation": q.get("explanation", ""),
+                    "source_page": q.get("source_page"),
+                    "source_snippet": q.get("source_snippet"),
+                })
+            if qq_rows:
+                sb.table("quiz_questions").insert(qq_rows).execute()
+        except Exception as exc:
+            logger.error(f"[DB] create_quiz failed: {exc}")
         return quiz_id
 
     @staticmethod
     def get_quizzes(user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT q.*, 
-                   (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = q.id AND a.user_id = q.user_id) as attempts_count,
-                   (SELECT MAX(a.percentage) FROM quiz_attempts a WHERE a.quiz_id = q.id AND a.user_id = q.user_id) as best_score
-            FROM quizzes q
-            WHERE q.user_id = ?
-            ORDER BY q.created_at DESC
-        """, (user_id,))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        sb = _get_sb()
+        try:
+            res = sb.table("quizzes").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+            quizzes = res.data or []
+            for quiz in quizzes:
+                # quiz_attempts uses 'quiz' column (not quiz_id) and 'score','total'
+                att_res = sb.table("quiz_attempts").select("score,total").eq("quiz", quiz["id"]).eq("user_id", user_id).execute()
+                atts = att_res.data or []
+                quiz["attempts_count"] = len(atts)
+                percentages = [round((a["score"] / a["total"]) * 100, 1) for a in atts if a.get("total")]
+                quiz["best_score"] = max(percentages) if percentages else None
+            return quizzes
+        except Exception as exc:
+            logger.error(f"[DB] get_quizzes failed: {exc}")
+            return []
 
     @staticmethod
     def get_quiz_detail(quiz_id: str, user_id: str) -> Optional[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM quizzes WHERE id = ? AND user_id = ?", (quiz_id, user_id))
-        q_row = cursor.fetchone()
-        if not q_row:
-            conn.close()
+        sb = _get_sb()
+        try:
+            qr = sb.table("quizzes").select("*").eq("id", quiz_id).eq("user_id", user_id).execute()
+            if not qr.data:
+                return None
+            quiz = qr.data[0]
+            qqr = sb.table("quiz_questions").select("*").eq("quiz_id", quiz_id).execute()
+            questions = []
+            for r in (qqr.data or []):
+                try:
+                    r["options"] = json.loads(r["options"]) if isinstance(r["options"], str) else r["options"]
+                except Exception:
+                    r["options"] = []
+                questions.append(r)
+            quiz["questions"] = questions
+            return quiz
+        except Exception as exc:
+            logger.error(f"[DB] get_quiz_detail failed: {exc}")
             return None
-        quiz = dict(q_row)
-
-        cursor.execute("SELECT * FROM quiz_questions WHERE quiz_id = ?", (quiz_id,))
-        q_rows = cursor.fetchall()
-        questions = []
-        for r in q_rows:
-            item = dict(r)
-            try:
-                item["options"] = json.loads(item["options"])
-            except Exception:
-                item["options"] = []
-            questions.append(item)
-        quiz["questions"] = questions
-        conn.close()
-        return quiz
 
     @staticmethod
     def submit_quiz_attempt(quiz_id: str, user_id: str, user_answers: List[int]) -> Dict[str, Any]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM quiz_questions WHERE quiz_id = ?", (quiz_id,))
-        questions = cursor.fetchall()
-        if not questions:
-            conn.close()
-            return {"error": "Quiz not found"}
+        sb = _get_sb()
+        try:
+            qqr = sb.table("quiz_questions").select("*").eq("quiz_id", quiz_id).execute()
+            questions = qqr.data or []
+            if not questions:
+                return {"error": "Quiz not found"}
 
-        score = 0
-        total = len(questions)
-        breakdown = []
+            score = 0
+            total = len(questions)
+            breakdown = []
+            for i, q in enumerate(questions):
+                ans = user_answers[i] if i < len(user_answers) else -1
+                is_correct = (ans == q["correct_option_index"])
+                if is_correct:
+                    score += 1
+                breakdown.append({
+                    "question_id": q["id"],
+                    "question_text": q["question_text"],
+                    "user_answer": ans,
+                    "correct_option_index": q["correct_option_index"],
+                    "is_correct": is_correct,
+                    "explanation": q.get("explanation"),
+                    "source_page": q.get("source_page"),
+                })
 
-        for i, q in enumerate(questions):
-            ans = user_answers[i] if i < len(user_answers) else -1
-            is_correct = (ans == q["correct_option_index"])
-            if is_correct:
-                score += 1
-            breakdown.append({
-                "question_id": q["id"],
-                "question_text": q["question_text"],
-                "user_answer": ans,
-                "correct_option_index": q["correct_option_index"],
-                "is_correct": is_correct,
-                "explanation": q["explanation"],
-                "source_page": q["source_page"]
-            })
+            percentage = round((score / total) * 100, 1) if total > 0 else 0.0
+            attempt_id = str(uuid.uuid4())
+            # Supabase quiz_attempts columns: id, user_id, document_id, quiz, answers, score, total, created_at
+            sb.table("quiz_attempts").insert({
+                "id": attempt_id,
+                "user_id": user_id,
+                "quiz": quiz_id,                          # Supabase uses 'quiz' not 'quiz_id'
+                "answers": json.dumps(user_answers),       # Supabase uses 'answers'
+                "score": score,
+                "total": total,
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }).execute()
 
-        percentage = round((score / total) * 100, 1) if total > 0 else 0.0
-        attempt_id = str(uuid.uuid4())
+            return {
+                "attempt_id": attempt_id,
+                "score": score,
+                "total": total,
+                "percentage": percentage,
+                "breakdown": breakdown,
+            }
+        except Exception as exc:
+            logger.error(f"[DB] submit_quiz_attempt failed: {exc}")
+            return {"error": str(exc)}
 
-        cursor.execute("""
-            INSERT INTO quiz_attempts (id, quiz_id, user_id, score, total, percentage, user_answers)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (attempt_id, quiz_id, user_id, score, total, percentage, json.dumps(user_answers)))
-        conn.commit()
-        conn.close()
+    # ── Exams & Tasks ─────────────────────────────────────────────────────────
 
-        return {
-            "attempt_id": attempt_id,
-            "score": score,
-            "total": total,
-            "percentage": percentage,
-            "breakdown": breakdown
-        }
-
-    # Exams & Tasks
     @staticmethod
-    def create_exam(user_id: str, title: str, subject: str, exam_date: str, target_score: int = 90, syllabus: str = "") -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def create_exam(user_id: str, title: str, subject: str, exam_date: str,
+                    target_score: int = 90, syllabus: str = "") -> str:
+        sb = _get_sb()
         exam_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO exams (id, user_id, title, subject, exam_date, target_score, syllabus)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (exam_id, user_id, title, subject, exam_date, target_score, syllabus))
-        conn.commit()
-        conn.close()
+        try:
+            sb.table("exams").insert({
+                "id": exam_id,
+                "user_id": user_id,
+                "title": title,
+                "subject": subject,
+                "exam_date": exam_date,
+                "target_score": target_score,
+                "syllabus": syllabus,
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.error(f"[DB] create_exam failed: {exc}")
         return exam_id
 
     @staticmethod
     def get_exams(user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM exams WHERE user_id = ? ORDER BY exam_date ASC", (user_id,))
-        rows = cursor.fetchall()
-        now = datetime.datetime.utcnow().date()
-        exams = []
-        for r in rows:
-            ex = dict(r)
-            try:
-                ex_date = datetime.datetime.fromisoformat(str(ex["exam_date"]).replace("Z", "")).date()
-                days_left = (ex_date - now).days
-            except Exception:
-                days_left = 0
-            ex["days_left"] = days_left
-            exams.append(ex)
-        conn.close()
-        return exams
+        sb = _get_sb()
+        try:
+            res = sb.table("exams").select("*").eq("user_id", user_id).order("exam_date").execute()
+            now = datetime.datetime.utcnow().date()
+            exams = []
+            for ex in (res.data or []):
+                try:
+                    ex_date = datetime.datetime.fromisoformat(str(ex["exam_date"]).replace("Z", "")).date()
+                    ex["days_left"] = (ex_date - now).days
+                except Exception:
+                    ex["days_left"] = 0
+                exams.append(ex)
+            return exams
+        except Exception as exc:
+            logger.error(f"[DB] get_exams failed: {exc}")
+            return []
 
     @staticmethod
     def delete_exam(exam_id: str, user_id: str) -> bool:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM exams WHERE id = ? AND user_id = ?", (exam_id, user_id))
-        conn.commit()
-        conn.close()
-        return True
+        sb = _get_sb()
+        try:
+            sb.table("exams").delete().eq("id", exam_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as exc:
+            logger.error(f"[DB] delete_exam failed: {exc}")
+            return False
 
     @staticmethod
-    def create_task(user_id: str, title: str, due_date: Optional[str] = None, 
+    def create_task(user_id: str, title: str, due_date: Optional[str] = None,
                     exam_id: Optional[str] = None, priority: str = "medium") -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
         task_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO tasks (id, user_id, exam_id, title, due_date, is_completed, priority)
-            VALUES (?, ?, ?, ?, ?, 0, ?)
-        """, (task_id, user_id, exam_id, title, due_date, priority))
-        conn.commit()
-        conn.close()
+        try:
+            sb.table("tasks").insert({
+                "id": task_id,
+                "user_id": user_id,
+                "exam_id": exam_id,
+                "title": title,
+                "due_date": due_date,
+                "is_completed": False,
+                "priority": priority,
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.error(f"[DB] create_task failed: {exc}")
         return task_id
 
     @staticmethod
     def get_tasks(user_id: str) -> List[Dict[str, Any]]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT t.*, e.title as exam_title 
-            FROM tasks t
-            LEFT JOIN exams e ON t.exam_id = e.id
-            WHERE t.user_id = ?
-            ORDER BY t.is_completed ASC, t.due_date ASC, t.created_at DESC
-        """, (user_id,))
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        sb = _get_sb()
+        try:
+            res = sb.table("tasks").select("*").eq("user_id", user_id).order("is_completed").order("created_at", desc=True).execute()
+            tasks = res.data or []
+            for t in tasks:
+                t["exam_title"] = None  # no join in PostgREST simple select
+            return tasks
+        except Exception as exc:
+            logger.error(f"[DB] get_tasks failed: {exc}")
+            return []
 
     @staticmethod
     def toggle_task(task_id: str, user_id: str) -> bool:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT is_completed FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
+        sb = _get_sb()
+        try:
+            res = sb.table("tasks").select("is_completed").eq("id", task_id).eq("user_id", user_id).execute()
+            if not res.data:
+                return False
+            new_val = not bool(res.data[0]["is_completed"])
+            sb.table("tasks").update({"is_completed": new_val}).eq("id", task_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as exc:
+            logger.error(f"[DB] toggle_task failed: {exc}")
             return False
-        new_val = 0 if row["is_completed"] else 1
-        cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ? AND user_id = ?", (new_val, task_id, user_id))
-        conn.commit()
-        conn.close()
-        return True
 
     @staticmethod
     def delete_task(task_id: str, user_id: str) -> bool:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
-        conn.commit()
-        conn.close()
-        return True
+        sb = _get_sb()
+        try:
+            sb.table("tasks").delete().eq("id", task_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as exc:
+            logger.error(f"[DB] delete_task failed: {exc}")
+            return False
 
-    # Focus Sessions & Analytics
+    # ── Focus Sessions ────────────────────────────────────────────────────────
+
     @staticmethod
-    def log_focus_session(user_id: str, duration_minutes: int, subject: str = "General", notes: str = "") -> str:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def log_focus_session(user_id: str, duration_minutes: int,
+                          subject: str = "General", notes: str = "") -> str:
+        sb = _get_sb()
         session_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO focus_sessions (id, user_id, duration_minutes, subject, notes)
-            VALUES (?, ?, ?, ?, ?)
-        """, (session_id, user_id, duration_minutes, subject, notes))
-        conn.commit()
-        conn.close()
+        try:
+            sb.table("focus_sessions").insert({
+                "id": session_id,
+                "user_id": user_id,
+                "duration_minutes": duration_minutes,
+                "subject": subject,
+                "notes": notes,
+                "completed_at": datetime.datetime.utcnow().isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.error(f"[DB] log_focus_session failed: {exc}")
         return session_id
+
+    # ── Analytics ─────────────────────────────────────────────────────────────
 
     @staticmethod
     def get_analytics(user_id: str) -> Dict[str, Any]:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        sb = _get_sb()
+        try:
+            focus_res = sb.table("focus_sessions").select("duration_minutes").eq("user_id", user_id).execute()
+            total_focus = sum(f["duration_minutes"] for f in (focus_res.data or []))
 
-        # Total focus time
-        cursor.execute("SELECT COALESCE(SUM(duration_minutes), 0) as total_focus_min FROM focus_sessions WHERE user_id = ?", (user_id,))
-        total_focus = cursor.fetchone()["total_focus_min"]
+            q_res = sb.table("questions").select("id", count="exact").eq("user_id", user_id).execute()
+            total_questions = q_res.count or len(q_res.data or [])
 
-        # Total questions answered
-        cursor.execute("SELECT COUNT(*) as q_count FROM questions WHERE user_id = ?", (user_id,))
-        total_questions = cursor.fetchone()["q_count"]
+            d_res = sb.table("documents").select("id", count="exact").eq("user_id", user_id).execute()
+            total_docs = d_res.count or len(d_res.data or [])
 
-        # Total documents uploaded
-        cursor.execute("SELECT COUNT(*) as d_count FROM documents WHERE user_id = ?", (user_id,))
-        total_docs = cursor.fetchone()["d_count"]
+            att_res = sb.table("quiz_attempts").select("score,total").eq("user_id", user_id).execute()
+            atts = att_res.data or []
+            quiz_attempts = len(atts)
+            percentages = [round((a["score"] / a["total"]) * 100, 1) for a in atts if a.get("total")]
+            avg_quiz_score = round(sum(percentages) / len(percentages), 1) if percentages else 0.0
 
-        # Quiz stats
-        cursor.execute("SELECT COUNT(*) as attempts, COALESCE(AVG(percentage), 0) as avg_score FROM quiz_attempts WHERE user_id = ?", (user_id,))
-        quiz_row = cursor.fetchone()
-        quiz_attempts = quiz_row["attempts"]
-        avg_quiz_score = round(quiz_row["avg_score"], 1)
+            fc_res = sb.table("flashcards").select("repetition_count,next_review").eq("user_id", user_id).execute()
+            cards = fc_res.data or []
+            now_iso = datetime.datetime.utcnow().isoformat()
+            mastered = sum(1 for c in cards if (c.get("repetition_count") or 0) >= 3)
+            due = sum(1 for c in cards if (c.get("next_review") or "") <= now_iso)
 
-        # Flashcards mastered vs due
-        cursor.execute("""
-            SELECT COUNT(*) as total_cards,
-                   SUM(CASE WHEN repetition_count >= 3 THEN 1 ELSE 0 END) as mastered_cards,
-                   SUM(CASE WHEN next_review <= CURRENT_TIMESTAMP THEN 1 ELSE 0 END) as due_cards
-            FROM flashcards WHERE user_id = ?
-        """, (user_id,))
-        fc_row = cursor.fetchone()
+            task_res = sb.table("tasks").select("is_completed").eq("user_id", user_id).execute()
+            tasks = task_res.data or []
+            done_tasks = sum(1 for t in tasks if t.get("is_completed"))
 
-        # Task completion
-        cursor.execute("""
-            SELECT COUNT(*) as total_tasks,
-                   SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as done_tasks
-            FROM tasks WHERE user_id = ?
-        """, (user_id,))
-        task_row = cursor.fetchone()
+            user_res = sb.table("users").select("study_streak").eq("id", user_id).execute()
+            streak = (user_res.data[0].get("study_streak") or 0) if user_res.data else 0
 
-        # Study streak
-        cursor.execute("SELECT study_streak FROM users WHERE id = ?", (user_id,))
-        user_row = cursor.fetchone()
-        streak = user_row["study_streak"] if user_row else 0
-
-        conn.close()
-
-        return {
-            "study_streak": streak,
-            "total_focus_minutes": total_focus,
-            "total_focus_hours": round(total_focus / 60, 1),
-            "total_documents": total_docs,
-            "total_questions": total_questions,
-            "quiz_attempts": quiz_attempts,
-            "average_quiz_score": avg_quiz_score,
-            "total_flashcards": fc_row["total_cards"] or 0,
-            "mastered_flashcards": fc_row["mastered_cards"] or 0,
-            "due_flashcards": fc_row["due_cards"] or 0,
-            "total_tasks": task_row["total_tasks"] or 0,
-            "completed_tasks": task_row["done_tasks"] or 0
-        }
+            return {
+                "study_streak": streak,
+                "total_focus_minutes": total_focus,
+                "total_focus_hours": round(total_focus / 60, 1),
+                "total_documents": total_docs,
+                "total_questions": total_questions,
+                "quiz_attempts": quiz_attempts,
+                "average_quiz_score": avg_quiz_score,
+                "total_flashcards": len(cards),
+                "mastered_flashcards": mastered,
+                "due_flashcards": due,
+                "total_tasks": len(tasks),
+                "completed_tasks": done_tasks,
+            }
+        except Exception as exc:
+            logger.error(f"[DB] get_analytics failed: {exc}")
+            return {
+                "study_streak": 0, "total_focus_minutes": 0, "total_focus_hours": 0,
+                "total_documents": 0, "total_questions": 0, "quiz_attempts": 0,
+                "average_quiz_score": 0, "total_flashcards": 0, "mastered_flashcards": 0,
+                "due_flashcards": 0, "total_tasks": 0, "completed_tasks": 0,
+            }

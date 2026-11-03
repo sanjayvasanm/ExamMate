@@ -7,14 +7,9 @@ ENV PYTHONUNBUFFERED=1 \
     MALLOC_ARENA_MAX=2 \
     PORT=10000
 
-# Install system dependencies for PaddleOCR and standard tools
+# Install lightweight system dependencies
 RUN apt-get update && apt-get install -y \
-    libgl1 \
     libglib2.0-0 \
-    libsm6 \
-    libxrender1 \
-    libxext6 \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -30,6 +25,6 @@ COPY . .
 # Expose the port (Render uses $PORT)
 EXPOSE 10000
 
-# Start with a single worker to stay within 512MB RAM limit
-# We use threads instead of workers for better memory sharing
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} app:app --workers 1 --threads 2 --timeout 120 --log-level info"]
+# Start with a single worker and threads to stay within 512MB RAM limit.
+# Recycle workers via max-requests to prevent memory fragmentation and leaks.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} app:app --workers 1 --threads 2 --worker-class gthread --max-requests 50 --max-requests-jitter 10 --timeout 120 --log-level info"]

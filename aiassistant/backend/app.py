@@ -3,12 +3,21 @@ import sys
 import time
 import json
 import uuid
+import logging
 import datetime
 from functools import wraps
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+# ── Structured Logging ────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("exammate")
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -17,7 +26,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 
 # ── Local imports ─────────────────────────────────────────────────────────────
-from db import DatabaseManager
+from db import DatabaseManager, upload_to_storage
 from pipeline.extractor import process_document, prepare_chunks_for_storage
 from pipeline.retriever import PrecisionRetriever
 from pipeline.generator import (
@@ -112,7 +121,7 @@ def login():
         return jsonify({"error": "Email and password are required"}), 400
 
     user = DatabaseManager.get_user_by_email(email)
-    if not user or not check_password_hash(user["password_hash"], password):
+    if not user or not check_password_hash(user.get("password") or user.get("password_hash", ""), password):
         return jsonify({"error": "Invalid email or password"}), 401
 
     token = make_token(user["id"], email)
@@ -193,15 +202,30 @@ def upload_file():
 
     doc_id = str(uuid.uuid4())
     file_size = os.path.getsize(filepath)
+    file_size_mb = round(file_size / (1024 * 1024), 4)
+
+    logger.info(f"[UPLOAD_START] user={request.user_id} file={safe_name} size={file_size}B doc_id={doc_id}")
+    t_start = time.time()
 
     try:
         # Run precision extraction pipeline
+        logger.info(f"[EXTRACTION_START] doc_id={doc_id} file={safe_name}")
         ext_result = process_document(filepath)
+        t_extract = time.time()
+        logger.info(f"[EXTRACTION_DONE] doc_id={doc_id} pages={ext_result['page_count']} "
+                    f"method={ext_result['extraction_method']} elapsed={t_extract - t_start:.2f}s")
+
         chunks = prepare_chunks_for_storage(doc_id, request.user_id, ext_result["blocks"])
+        logger.info(f"[CHUNKING_DONE] doc_id={doc_id} chunks={len(chunks)}")
 
         # Create quick summary from first blocks
         first_few = " ".join([b["chunk_text"] for b in ext_result["blocks"][:2]])
         summary = first_few[:250] + "..." if len(first_few) > 250 else first_few
+
+        # Upload to Supabase Storage (async-safe: runs in same thread, small files only)
+        storage_path = f"{request.user_id}/{doc_id}/{safe_name}"
+        uploaded_storage_path = upload_to_storage(filepath, storage_path)
+        logger.info(f"[STORAGE_UPLOAD] doc_id={doc_id} storage_path={uploaded_storage_path}")
 
         # Save document metadata
         doc_record = {
@@ -211,6 +235,7 @@ def upload_file():
             "stored_path": filepath,
             "file_type": ext_result["file_type"],
             "file_size_bytes": file_size,
+            "file_size_mb": file_size_mb,
             "page_count": ext_result["page_count"],
             "processed_pages": ext_result["processed_pages"],
             "ocr_used": ext_result["ocr_used"],
@@ -218,20 +243,35 @@ def upload_file():
             "confidence_score": ext_result["confidence_score"],
             "warnings": ext_result["warnings"],
             "summary": summary,
-            "status": "completed" if ext_result["confidence_score"] >= 20.0 else "warning"
+            "chunks_processed": len(chunks),
+            "storage_path": uploaded_storage_path,
+            "status": "processed" if ext_result["confidence_score"] >= 20.0 else "warning"
         }
         DatabaseManager.save_document(doc_record)
         DatabaseManager.save_document_chunks(chunks)
 
+        t_done = time.time()
+        logger.info(f"[UPLOAD_COMPLETE] doc_id={doc_id} file={safe_name} chunks={len(chunks)} "
+                    f"total_elapsed={t_done - t_start:.2f}s")
+
         return jsonify({
             "message": "Document uploaded and extracted successfully",
-            "document": doc_record,
+            "document": {
+                "id": doc_id,
+                "filename": safe_name,
+                "file_type": ext_result["file_type"],
+                "file_size_bytes": file_size,
+                "page_count": ext_result["page_count"],
+                "status": doc_record["status"],
+                "storage_path": uploaded_storage_path,
+            },
             "chunks_count": len(chunks)
         }), 201
 
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        tb = traceback.format_exc()
+        logger.error(f"[UPLOAD_ERROR] doc_id={doc_id} file={safe_name} error={e}\n{tb}")
         return jsonify({
             "error": f"Extraction failed: {str(e)}"
         }), 500
@@ -579,11 +619,18 @@ def get_analytics():
 @app.route("/api/health", methods=["GET"])
 def health_check():
     groq_active = get_groq_client() is not None
+    sb_status = "unknown"
+    try:
+        from db import _get_sb
+        _get_sb()
+        sb_status = "supabase_connected"
+    except Exception as _he:
+        sb_status = f"supabase_error: {str(_he)[:60]}"
     return jsonify({
         "status": "healthy",
         "app": "Exam Mate AI",
-        "version": "2.0.0-precision",
-        "database": "sqlite_relational_active",
+        "version": "2.1.0-supabase",
+        "database": sb_status,
         "ai_engine": "groq_active" if groq_active else "local_grounded_active",
         "supported_formats": list(ALLOWED_EXTENSIONS)
     })

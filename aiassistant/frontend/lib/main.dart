@@ -38,7 +38,6 @@ class ExamMateApp extends StatelessWidget {
       ),
       home: const RootGate(),
     );
-
   }
 }
 
@@ -51,6 +50,7 @@ class RootGate extends StatefulWidget {
 
 class _RootGateState extends State<RootGate> {
   final ApiService _api = ApiService();
+  bool _isCheckingAuth = true;
   bool _isAuthenticated = false;
 
   @override
@@ -59,21 +59,72 @@ class _RootGateState extends State<RootGate> {
     _checkAuth();
   }
 
-  void _checkAuth() {
-    setState(() {
-      _isAuthenticated = _api.token != null;
-    });
+  Future<void> _checkAuth() async {
+    final valid = await _api.restoreSession();
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = valid;
+        _isCheckingAuth = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0D0C22),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 36,
+                backgroundColor: Color(0x26008A3F),
+                child: Icon(Icons.school, size: 40, color: Color(0xFF10B981)),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Exam Mate AI',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Restoring study session...',
+                style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+              ),
+              SizedBox(height: 24),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (!_isAuthenticated) {
       return AuthScreen(
         onLoginSuccess: () => setState(() => _isAuthenticated = true),
       );
     }
     return MainShell(
-      onLogout: () => setState(() => _isAuthenticated = false),
+      onLogout: () async {
+        await _api.logout();
+        if (mounted) {
+          setState(() => _isAuthenticated = false);
+        }
+      },
     );
   }
 }

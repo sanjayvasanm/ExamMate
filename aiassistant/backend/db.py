@@ -528,15 +528,30 @@ class DatabaseManager:
     def save_question(q_data: Dict[str, Any]) -> str:
         sb = _get_sb()
         q_id = q_data.get("id") or str(uuid.uuid4())
+        
+        doc_id = q_data.get("document_id")
+        if doc_id:
+            try:
+                uuid.UUID(str(doc_id))
+                # Verify document exists to prevent foreign key violations (questions_document_id_fkey)
+                chk = sb.table("documents").select("id").eq("id", str(doc_id)).execute()
+                if not chk.data:
+                    doc_id = None
+            except Exception:
+                doc_id = None
+
+        raw_kw = q_data.get("keywords", [])
+        kw_list = raw_kw if isinstance(raw_kw, list) else ([raw_kw] if raw_kw else [])
+
         row = {
             "id": q_id,
             "user_id": q_data["user_id"],
-            "document_id": q_data.get("document_id"),
+            "document_id": doc_id,
             "question": q_data["question"],
             "answer": q_data.get("answer_text") or q_data.get("answer", ""),
             "mode": q_data.get("mode", "detailed"),
             "marks": q_data.get("marks", 5),
-            "keywords": json.dumps(q_data.get("keywords", [])) if isinstance(q_data.get("keywords"), list) else (q_data.get("keywords") or ""),
+            "keywords": kw_list,
             "subject": q_data.get("subject", ""),
             "asked_at": datetime.datetime.utcnow().isoformat(),
         }
@@ -546,7 +561,17 @@ class DatabaseManager:
         try:
             sb.table("questions").insert(row).execute()
         except Exception as exc:
-            logger.error(f"[DB] save_question failed: {exc}")
+            err = str(exc)
+            if "23503" in err or "foreign key" in err.lower():
+                # Stale document_id: retry with None so user answer is preserved
+                row["document_id"] = None
+                try:
+                    sb.table("questions").insert(row).execute()
+                    logger.info(f"[DB] Question saved without stale document_id: {q_id}")
+                except Exception as retry_err:
+                    logger.error(f"[DB] save_question retry failed: {retry_err}")
+            else:
+                logger.error(f"[DB] save_question failed: {exc}")
         return q_id
 
     @staticmethod
@@ -746,10 +771,29 @@ class DatabaseManager:
         try:
             res = sb.table("quizzes").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
             quizzes = res.data or []
+            
+            # Fetch quiz attempts safely for this user without json column filter error
+            atts_by_quiz = {}
+            try:
+                att_res = sb.table("quiz_attempts").select("score,total,quiz").eq("user_id", user_id).execute()
+                for a in (att_res.data or []):
+                    q_val = a.get("quiz")
+                    qid = None
+                    if isinstance(q_val, dict):
+                        qid = q_val.get("id")
+                    elif isinstance(q_val, str):
+                        try:
+                            parsed = json.loads(q_val)
+                            qid = parsed.get("id") if isinstance(parsed, dict) else parsed
+                        except Exception:
+                            qid = q_val
+                    if qid:
+                        atts_by_quiz.setdefault(str(qid), []).append(a)
+            except Exception as e:
+                logger.warning(f"[DB] fetch quiz attempts notice: {e}")
+
             for quiz in quizzes:
-                # quiz_attempts uses 'quiz' column (not quiz_id) and 'score','total'
-                att_res = sb.table("quiz_attempts").select("score,total").eq("quiz", quiz["id"]).eq("user_id", user_id).execute()
-                atts = att_res.data or []
+                atts = atts_by_quiz.get(str(quiz["id"]), [])
                 quiz["attempts_count"] = len(atts)
                 percentages = [round((a["score"] / a["total"]) * 100, 1) for a in atts if a.get("total")]
                 quiz["best_score"] = max(percentages) if percentages else None
@@ -809,16 +853,33 @@ class DatabaseManager:
 
             percentage = round((score / total) * 100, 1) if total > 0 else 0.0
             attempt_id = str(uuid.uuid4())
-            # Supabase quiz_attempts columns: id, user_id, document_id, quiz, answers, score, total, created_at
-            sb.table("quiz_attempts").insert({
+            
+            # Fetch document_id if available on parent quiz
+            doc_id = None
+            try:
+                qz = sb.table("quizzes").select("document_id").eq("id", quiz_id).execute()
+                if qz.data:
+                    doc_id = qz.data[0].get("document_id")
+            except Exception:
+                pass
+
+            att_row = {
                 "id": attempt_id,
                 "user_id": user_id,
-                "quiz": quiz_id,                          # Supabase uses 'quiz' not 'quiz_id'
-                "answers": json.dumps(user_answers),       # Supabase uses 'answers'
+                "quiz": {"id": quiz_id},                   # JSONB object
+                "answers": user_answers,                   # JSONB list
                 "score": score,
                 "total": total,
                 "created_at": datetime.datetime.utcnow().isoformat(),
-            }).execute()
+            }
+            if doc_id:
+                try:
+                    uuid.UUID(str(doc_id))
+                    att_row["document_id"] = str(doc_id)
+                except Exception:
+                    pass
+
+            sb.table("quiz_attempts").insert(att_row).execute()
 
             return {
                 "attempt_id": attempt_id,
